@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Claude AI 自動總結",
+  "version": "1.0",
+  "description": "在任何網頁上添加懸浮按鈕，一鍵用Claude AI總結當前頁面",
+  "permissions": [
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    },
+    {
+      "matches": ["*://claude.ai/*"],
+      "js": ["claude_auto_handler.js", "test_ocr.js"]
+    }
+  ],
+  "action": {
+    "default_title": "Claude AI 智能助手",
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "64": "icons8-magic-64.png"
+  }
+}
