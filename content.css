@@ -2,8 +2,8 @@
   position: fixed;
   top: 20px;
   right: 20px;
-  width: 60px;
-  height: 60px;
+  width: 40px;
+  height: 40px;
   background: linear-gradient(135deg, #6366f1, #8b5cf6);
   border: none;
   border-radius: 50%;
@@ -20,7 +20,7 @@
 }
 
 .claude-summary-button:hover {
-  transform: scale(1.1);
+  transform: scale(1.5);
   box-shadow: 0 6px 25px rgba(99, 102, 241, 0.4);
 }
 
@@ -45,7 +45,7 @@
 }
 
 .claude-summary-button:hover::before {
-  content: "✨";
+  content: "🧠";
 }
 
 .claude-summary-button.hidden::before {
@@ -54,10 +54,10 @@
 
 .claude-translate-button {
   position: fixed;
-  top: 90px;
+  top: 70px;
   right: 20px;
-  width: 60px;
-  height: 60px;
+  width: 40px;
+  height: 40px;
   background: linear-gradient(135deg, #10b981, #059669);
   border: none;
   border-radius: 50%;
@@ -74,7 +74,7 @@
 }
 
 .claude-translate-button:hover {
-  transform: scale(1.1);
+  transform: scale(1.5);
   box-shadow: 0 6px 25px rgba(16, 185, 129, 0.4);
 }
 
@@ -99,9 +99,7 @@
 }
 
 .claude-translate-button:hover::before {
-  content: "中";
-  font-weight: bold;
-  font-size: 20px;
+  content: "🌐";
 }
 
 .claude-translate-button.hidden::before {
@@ -110,10 +108,10 @@
 
 .claude-ocr-button {
   position: fixed;
-  top: 160px;
+  top: 120px;
   right: 20px;
-  width: 60px;
-  height: 60px;
+  width: 40px;
+  height: 40px;
   background: linear-gradient(135deg, #f59e0b, #d97706);
   border: none;
   border-radius: 50%;
@@ -130,7 +128,7 @@
 }
 
 .claude-ocr-button:hover {
-  transform: scale(1.1);
+  transform: scale(1.5);
   box-shadow: 0 6px 25px rgba(245, 158, 11, 0.4);
 }
 
@@ -165,7 +163,7 @@
 }
 
 .claude-ocr-button:hover::before {
-  content: "📋";
+  content: "📷";
 }
 
 .claude-ocr-button.hidden::before {
@@ -178,10 +176,10 @@
 
 .claude-search-button {
   position: fixed;
-  top: 230px;
+  top: 170px;
   right: 20px;
-  width: 60px;
-  height: 60px;
+  width: 40px;
+  height: 40px;
   background: linear-gradient(135deg, #3b82f6, #1d4ed8);
   border: none;
   border-radius: 50%;
@@ -198,7 +196,7 @@
 }
 
 .claude-search-button:hover {
-  transform: scale(1.1);
+  transform: scale(1.5);
   box-shadow: 0 6px 25px rgba(59, 130, 246, 0.4);
 }
 
@@ -223,7 +221,7 @@
 }
 
 .claude-search-button:hover::before {
-  content: "📝";
+  content: "🔍";
 }
 
 .claude-search-button.hidden::before {
