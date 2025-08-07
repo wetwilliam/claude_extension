@@ -102,7 +102,7 @@ function createSummaryButton() {
     // 如果是點擊（不是拖拽且時間短），觸發總結功能
     if (!isDragging && Date.now() - dragStartTime < 200) {
       const currentUrl = window.location.href;
-      const claudeUrl = `https://claude.ai/new?q=請濃縮以下網頁重點在500字內並適當分點：${currentUrl}`;
+      const claudeUrl = `https://claude.ai/new?q=我希望你扮演一個摘要助手。我將向你提供文章、報告、會議記錄、學術論文或其他長篇文本內容，你需要提取關鍵資訊並產生簡潔明了的摘要。請確保摘要文章原文的核心觀點、重要數據、主要結論和關鍵細節，同時保持邏輯清晰和結構合理。摘要應探究中性，不添加個人觀點或解釋。請根據內容的複雜程度和重要性調整摘要的長度，通常會控制在原文的10-30%。如果是技術性或專業性的內容，請保留必要的專業術語。網頁連結：${currentUrl}`;
       
       // 計算右側位置
       const rightPosition = window.screen.width - 800 - 100; // 螢幕寬度 - 視窗寬度 - 邊距
@@ -236,7 +236,7 @@ function createTranslateButton() {
     // 如果是點擊（不是拖拽且時間短），觸發翻譯功能
     if (!isDragging && Date.now() - dragStartTime < 200) {
       const currentUrl = window.location.href;
-      const claudeUrl = `https://claude.ai/new?q=請為我將網頁內容翻譯為中文：${currentUrl}`;
+      const claudeUrl = `https://claude.ai/new?q=我希望您選擇一個專業的翻譯助理。我將向您提供需要翻譯的文字內容或網頁，請您提供準確、流暢且符合目標語言表達習慣的翻譯。請保持原文的語調、風格和內涵，確保翻譯的專業性和準確性。對於專業術語、慣用語或文化特定的表達，請選擇最適合的對應翻譯。如果遇到模糊或有多種理解的情況，請提供最合理的內容翻譯版本。請只提供翻譯結果，無需額外的解釋或說明。網頁連結：${currentUrl}`;
       
       // 計算右側位置
       const rightPosition = window.screen.width - 800 - 100; // 螢幕寬度 - 視窗寬度 - 邊距
