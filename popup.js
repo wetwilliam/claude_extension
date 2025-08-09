@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const ocrSubmenu = document.getElementById('ocrSubmenu');
   const ocrFullPageBtn = document.getElementById('ocrFullPageBtn');
   const ocrSelectAreaBtn = document.getElementById('ocrSelectAreaBtn');
+  const toggleFloatingBtn = document.getElementById('toggleFloatingBtn');
+  const toggleFloatingText = document.getElementById('toggleFloatingText');
   
   // 總結按鈕點擊事件
   summaryBtn.addEventListener('click', function() {
@@ -127,4 +129,35 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
   });
+  
+  // 初始化懸浮視窗顯示狀態
+  updateToggleButtonText();
+  
+  // 顯示/隱藏懸浮視窗按鈕事件
+  toggleFloatingBtn.addEventListener('click', function() {
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      chrome.tabs.sendMessage(tabs[0].id, {
+        action: 'toggleFloatingButtons'
+      }, function(response) {
+        // 更新按鈕文字
+        updateToggleButtonText();
+        window.close();
+      });
+    });
+  });
+  
+  // 更新切換按鈕的文字
+  function updateToggleButtonText() {
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      chrome.tabs.sendMessage(tabs[0].id, {
+        action: 'getFloatingButtonsState'
+      }, function(response) {
+        if (response && response.hidden) {
+          toggleFloatingText.textContent = '顯示 懸浮視窗';
+        } else {
+          toggleFloatingText.textContent = '隱藏 懸浮視窗';
+        }
+      });
+    });
+  }
 });

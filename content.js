@@ -867,6 +867,74 @@ function cropImageInContent(dataUrl, area) {
   });
 }
 
+// 切換所有懸浮按鈕的顯示/隱藏狀態
+function toggleAllFloatingButtons() {
+  const buttons = [
+    document.getElementById('claude-summary-btn'),
+    document.getElementById('claude-translate-btn'),
+    document.getElementById('claude-search-btn'),
+    document.getElementById('claude-ocr-btn')
+  ];
+  
+  // 檢查目前狀態，如果有任何一個按鈕是隱藏的，就全部顯示；否則全部隱藏
+  const anyHidden = buttons.some(btn => btn && btn.classList.contains('hidden'));
+  
+  buttons.forEach(btn => {
+    if (btn) {
+      if (anyHidden) {
+        // 顯示按鈕
+        btn.classList.remove('hidden');
+        // 更新各按鈕的localStorage狀態
+        if (btn.id === 'claude-summary-btn') {
+          localStorage.setItem('claude-button-hidden', 'false');
+          btn.title = '用 Claude AI 總結此頁面 | 拖拽移動 | 右鍵隱藏';
+        } else if (btn.id === 'claude-translate-btn') {
+          localStorage.setItem('claude-translate-hidden', 'false');
+          btn.title = '用 Claude AI 翻譯此頁面為中文 | 拖拽移動 | 右鍵隱藏';
+        } else if (btn.id === 'claude-search-btn') {
+          localStorage.setItem('claude-search-hidden', 'false');
+          btn.title = '自定義搜尋功能 | 拖拽移動 | 右鍵隱藏';
+        } else if (btn.id === 'claude-ocr-btn') {
+          localStorage.setItem('claude-ocr-hidden', 'false');
+          btn.title = '截圖並用 Claude AI 進行OCR文字識別 | 拖拽移動 | 右鍵隱藏';
+        }
+      } else {
+        // 隱藏按鈕
+        btn.classList.add('hidden');
+        // 更新各按鈕的localStorage狀態
+        if (btn.id === 'claude-summary-btn') {
+          localStorage.setItem('claude-button-hidden', 'true');
+          btn.title = '點擊顯示 | 拖拽移動 | 右鍵切換';
+        } else if (btn.id === 'claude-translate-btn') {
+          localStorage.setItem('claude-translate-hidden', 'true');
+          btn.title = '點擊顯示 | 拖拽移動 | 右鍵切換';
+        } else if (btn.id === 'claude-search-btn') {
+          localStorage.setItem('claude-search-hidden', 'true');
+          btn.title = '點擊顯示 | 拖拽移動 | 右鍵切換';
+        } else if (btn.id === 'claude-ocr-btn') {
+          localStorage.setItem('claude-ocr-hidden', 'true');
+          btn.title = '點擊顯示 | 拖拽移動 | 右鍵切換';
+        }
+      }
+    }
+  });
+  
+  return !anyHidden; // 返回操作後是否為隱藏狀態
+}
+
+// 獲取懸浮按鈕的顯示狀態
+function getFloatingButtonsState() {
+  const buttons = [
+    document.getElementById('claude-summary-btn'),
+    document.getElementById('claude-translate-btn'),
+    document.getElementById('claude-search-btn'),
+    document.getElementById('claude-ocr-btn')
+  ];
+  
+  // 如果所有按鈕都隱藏，返回true；否則返回false
+  return buttons.every(btn => btn && btn.classList.contains('hidden'));
+}
+
 // 等待頁面載入完成後創建按鈕
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', function() {
@@ -920,5 +988,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     }
     return true; // 保持消息通道開放
+  }
+  
+  // 處理顯示/隱藏懸浮視窗請求
+  if (request.action === 'toggleFloatingButtons') {
+    const allHidden = toggleAllFloatingButtons();
+    sendResponse({success: true, hidden: allHidden});
+    return true;
+  }
+  
+  // 獲取懸浮視窗狀態
+  if (request.action === 'getFloatingButtonsState') {
+    const hidden = getFloatingButtonsState();
+    sendResponse({success: true, hidden: hidden});
+    return true;
   }
 });
