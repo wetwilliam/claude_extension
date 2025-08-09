@@ -97,6 +97,47 @@
       color: white;
     }
     
+    .ai-selector {
+      margin-top: 15px;
+      text-align: center;
+    }
+    
+    .ai-selector label {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 8px;
+      opacity: 0.9;
+    }
+    
+    .ai-select {
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.15);
+      color: white;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      outline: none;
+      backdrop-filter: blur(10px);
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 8px center;
+      background-repeat: no-repeat;
+      background-size: 16px;
+      padding-right: 32px;
+    }
+    
+    .ai-select:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .ai-select option {
+      background: #444;
+      color: white;
+    }
+    
     .ocr-submenu {
       padding: 0 20px 10px 20px;
       background: rgba(251, 146, 60, 0.1);
@@ -121,8 +162,17 @@
 </head>
 <body>
   <div class="header">
-    <h1>Claude AI 助手</h1>
-    <p>選擇要執行的功能</p>
+    <h1>AI 智能助手</h1>
+    <p>選擇AI引擎和功能</p>
+    
+    <!-- AI引擎選擇器 -->
+    <div class="ai-selector">
+      <label for="aiEngineSelect">AI引擎：</label>
+      <select id="aiEngineSelect" class="ai-select">
+        <option value="claude">Claude AI</option>
+        <option value="gemini">Google Gemini</option>
+      </select>
+    </div>
   </div>
   
   <div class="buttons">

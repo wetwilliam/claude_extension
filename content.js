@@ -1,7 +1,159 @@
+// AI引擎配置
+const AI_ENGINES = {
+  claude: {
+    name: 'Claude AI',
+    baseUrl: 'https://claude.ai/new',
+    supportsDirectPrompt: true
+  },
+  gemini: {
+    name: 'Google Gemini',
+    baseUrl: 'https://gemini.google.com/app',
+    supportsDirectPrompt: false
+  }
+};
+
+// 提取頁面內容的函數
+function extractPageContent() {
+  try {
+    console.log('📄 開始提取頁面內容...');
+    
+    // 先嘗試移除不需要的元素
+    const elementsToRemove = [
+      'script', 'style', 'nav', 'header', 'footer', 
+      '.ad', '.advertisement', '.sidebar', '.menu',
+      '#comment', '.comment', '#social', '.social'
+    ];
+    
+    // 創建頁面的副本以避免修改原頁面
+    const pageClone = document.cloneNode(true);
+    
+    elementsToRemove.forEach(selector => {
+      const elements = pageClone.querySelectorAll(selector);
+      elements.forEach(el => el.remove());
+    });
+    
+    // 優先提取主要內容
+    let content = '';
+    
+    // 嘗試不同的內容選擇器
+    const contentSelectors = [
+      'article',
+      'main', 
+      '[role="main"]',
+      '.content',
+      '.post-content',
+      '.article-content', 
+      '#content',
+      '.entry-content',
+      '.post-body',
+      'body'
+    ];
+    
+    for (const selector of contentSelectors) {
+      const element = pageClone.querySelector(selector);
+      if (element) {
+        content = element.innerText || element.textContent || '';
+        if (content.trim().length > 100) {
+          console.log('✅ 找到內容，使用選擇器：', selector);
+          break;
+        }
+      }
+    }
+    
+    // 如果還是沒有足夠內容，使用整個body
+    if (content.trim().length < 100) {
+      content = pageClone.body?.innerText || pageClone.body?.textContent || '';
+      console.log('📝 使用body內容作為備選');
+    }
+    
+    // 清理內容
+    content = content
+      .replace(/\s+/g, ' ') // 多個空白字符替換為單個空格
+      .replace(/\n\s*\n/g, '\n') // 多個換行替換為單個換行
+      .trim();
+    
+    // 限制內容長度 (避免過長)
+    if (content.length > 8000) {
+      content = content.substring(0, 8000) + '...\n\n[內容已截斷，如需完整內容請查看原網頁]';
+    }
+    
+    console.log('📊 提取到內容長度：', content.length);
+    return content;
+    
+  } catch (error) {
+    console.error('提取頁面內容失敗：', error);
+    return document.body?.innerText || document.body?.textContent || '';
+  }
+}
+
+// 獲取當前選擇的AI引擎
+function getCurrentAIEngine() {
+  return localStorage.getItem('ai-engine') || 'claude';
+}
+
+// 生成AI URL並處理不同引擎
+async function generateAIUrl(actionType, prompt, currentUrl = '') {
+  const engine = getCurrentAIEngine();
+  const engineConfig = AI_ENGINES[engine];
+  
+  if (engineConfig.supportsDirectPrompt) {
+    // Claude AI - 直接使用URL參數
+    if (actionType === 'ocr') {
+      // OCR特殊處理
+      return `${engineConfig.baseUrl}?ocr=true&t=${Date.now()}`;
+    } else {
+      let fullPrompt = prompt;
+      if (currentUrl && actionType !== 'search') {
+        fullPrompt += `網頁連結：${currentUrl}`;
+      }
+      return `${engineConfig.baseUrl}?q=${encodeURIComponent(fullPrompt)}`;
+    }
+  } else {
+    // Google Gemini - 使用localStorage儲存prompt，然後開啟網站
+    let fullPrompt = prompt;
+    let shouldAlert = true;
+    
+    if (actionType === 'ocr') {
+      fullPrompt = '請幫我識別這張圖片中的文字內容，並將其轉換為可編輯的文本格式。請保持原有的排版結構。';
+      shouldAlert = false; // OCR的alert在別處處理
+    } else if (currentUrl && actionType !== 'search') {
+      fullPrompt += `\n\n網頁連結：${currentUrl}`;
+    }
+    
+    try {
+      // 複製到剪貼簿作為備用
+      await navigator.clipboard.writeText(fullPrompt);
+      console.log('Prompt已複製到剪貼簿:', fullPrompt);
+      
+      // 儲存到localStorage供Gemini頁面讀取
+      localStorage.setItem('gemini-auto-prompt', fullPrompt);
+      localStorage.setItem('gemini-auto-prompt-time', Date.now().toString());
+      localStorage.setItem('gemini-auto-prompt-action', actionType);
+      
+      console.log('Prompt已儲存到localStorage:', fullPrompt);
+      
+      if (shouldAlert) {
+        // 顯示提示訊息
+        setTimeout(() => {
+          alert('內容將自動輸入到Gemini並發送！\n\n✅ 使用智能事件系統自動處理');
+        }, 300);
+      }
+      
+    } catch (error) {
+      console.error('處理prompt失敗:', error);
+      if (shouldAlert) {
+        alert('無法處理prompt，請手動複製以下內容：\n\n' + fullPrompt);
+      }
+    }
+    
+    return engineConfig.baseUrl;
+  }
+}
+
 // 創建懸浮按鈕
 function createSummaryButton() {
   // 在Claude AI網站上不顯示懸浮按鈕
-  if (window.location.hostname === 'claude.ai') {
+  if (window.location.hostname === 'claude.ai'|| window.location.hostname === 'gemini.google.com') {
     return;
   }
   
@@ -101,15 +253,7 @@ function createSummaryButton() {
     
     // 如果是點擊（不是拖拽且時間短），觸發總結功能
     if (!isDragging && Date.now() - dragStartTime < 200) {
-      const currentUrl = window.location.href;
-      const claudeUrl = `https://claude.ai/new?q=我希望你扮演一個摘要助手。我將向你提供文章、報告、會議記錄、學術論文或其他長篇文本內容，你需要提取關鍵資訊並產生簡潔明了的摘要。請確保摘要文章原文的核心觀點、重要數據、主要結論和關鍵細節，同時保持邏輯清晰和結構合理。摘要應探究中性，不添加個人觀點或解釋。請根據內容的複雜程度和重要性調整摘要的長度，通常會控制在原文的10-30%。如果是技術性或專業性的內容，請保留必要的專業術語。網頁連結：${currentUrl}`;
-      
-      // 計算右側位置
-      const rightPosition = window.screen.width - 800 - 100; // 螢幕寬度 - 視窗寬度 - 邊距
-      const topPosition = window.screenY + 50; // 當前視窗頂部 + 小邊距
-      
-      // 開小視窗在右側
-      window.open(claudeUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
+      handleSummaryAction();
     }
     
     isDragging = false;
@@ -132,10 +276,124 @@ function createSummaryButton() {
   document.body.appendChild(button);
 }
 
+// 處理總結動作
+async function handleSummaryAction() {
+  try {
+    console.log('📋 開始處理總結動作...');
+    
+    // 獲取頁面內容
+    const pageContent = extractPageContent();
+    const currentUrl = window.location.href;
+    const pageTitle = document.title;
+    
+    if (!pageContent || pageContent.trim().length < 50) {
+      alert('無法獲取足夠的頁面內容進行總結');
+      return;
+    }
+    
+    // 組合完整prompt
+    const promptTemplate = '我希望你扮演一個摘要助手。我將向你提供文章、報告、會議記錄、學術論文或其他長篇文本內容，你需要提取關鍵資訊並產生簡潔明了的摘要。請確保摘要文章原文的核心觀點、重要數據、主要結論和關鍵細節，同時保持邏輯清晰和結構合理。摘要應探究中性，不添加個人觀點或解釋。請根據內容的複雜程度和重要性調整摘要的長度，通常會控制在原文的10-30%。如果是技術性或專業性的內容，請保留必要的專業術語。';
+    
+    const fullPrompt = `${promptTemplate}
+
+請總結以下內容：
+
+標題：${pageTitle}
+來源：${currentUrl}
+
+內容：
+${pageContent}`;
+
+    console.log('📝 總結prompt已準備，內容長度：', pageContent.length);
+    
+    // 複製到剪貼簿
+    await navigator.clipboard.writeText(fullPrompt);
+    console.log('📋 總結內容已複製到剪貼簿');
+    
+    const aiUrl = await generateAIUrl('summary', fullPrompt, currentUrl);
+    
+    // 計算右側位置
+    const rightPosition = window.screen.width - 800 - 100;
+    const topPosition = window.screenY + 50;
+    
+    // 開小視窗在右側
+    window.open(aiUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
+    
+  } catch (error) {
+    console.error('總結功能錯誤：', error);
+    alert('總結功能出現錯誤，請稍後再試');
+  }
+}
+
+// 處理翻譯動作
+async function handleTranslateAction() {
+  try {
+    console.log('🌐 開始處理翻譯動作...');
+    
+    // 獲取頁面內容
+    const pageContent = extractPageContent();
+    const currentUrl = window.location.href;
+    const pageTitle = document.title;
+    
+    if (!pageContent || pageContent.trim().length < 10) {
+      alert('無法獲取足夠的頁面內容進行翻譯');
+      return;
+    }
+    
+    // 組合完整prompt
+    const promptTemplate = '我希望您選擇一個專業的翻譯助理。我將向您提供需要翻譯的文字內容或網頁，請您提供準確、流暢且符合目標語言表達習慣的翻譯。請保持原文的語調、風格和內涵，確保翻譯的專業性和準確性。對於專業術語、慣用語或文化特定的表達，請選擇最適合的對應翻譯。如果遇到模糊或有多種理解的情況，請提供最合理的內容翻譯版本。請只提供翻譯結果，無需額外的解釋或說明。';
+    
+    const fullPrompt = `${promptTemplate}
+
+請翻譯以下內容為中文：
+
+標題：${pageTitle}
+來源：${currentUrl}
+
+內容：
+${pageContent}`;
+
+    console.log('🌐 翻譯prompt已準備，內容長度：', pageContent.length);
+    
+    // 複製到剪貼簿
+    await navigator.clipboard.writeText(fullPrompt);
+    console.log('📋 翻譯內容已複製到剪貼簿');
+    
+    const aiUrl = await generateAIUrl('translate', fullPrompt, currentUrl);
+    
+    // 計算右側位置
+    const rightPosition = window.screen.width - 800 - 100;
+    const topPosition = window.screenY + 50;
+    
+    // 開小視窗在右側
+    window.open(aiUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
+    
+  } catch (error) {
+    console.error('翻譯功能錯誤：', error);
+    alert('翻譯功能出現錯誤，請稍後再試');
+  }
+}
+
+// 處理搜尋動作
+async function handleSearchAction() {
+  const keyword = prompt('請輸入搜尋關鍵字：');
+  if (keyword && keyword.trim()) {
+    const searchPrompt = `請收集「${keyword.trim()}」的最新相關資訊，並遵守以下指引：只根據你實際使用搜尋工具檢索到的公開數據回答，不得依賴內建知識或推測內容。所有重要數據與事實，務必標明明確資料來源（如新聞、官方公告、專業網站），並於每點附上來源說明。若某項資訊未於檢索工具或外部資料中獲得，請明確回覆「查無此資料」或「資訊不足」，嚴禁自行假設或補足內容。`;
+    const aiUrl = await generateAIUrl('search', searchPrompt);
+    
+    // 計算右側位置
+    const rightPosition = window.screen.width - 800 - 100; // 螢幕寬度 - 視窗寬度 - 邊距
+    const topPosition = window.screenY + 50; // 當前視窗頂部 + 小邊距
+    
+    // 開小視窗在右側
+    window.open(aiUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
+  }
+}
+
 // 創建翻譯按鈕
 function createTranslateButton() {
   // 在Claude AI網站上不顯示懸浮按鈕
-  if (window.location.hostname === 'claude.ai') {
+  if (window.location.hostname === 'claude.ai' || window.location.hostname === 'gemini.google.com') {
     return;
   }
   
@@ -235,15 +493,7 @@ function createTranslateButton() {
     
     // 如果是點擊（不是拖拽且時間短），觸發翻譯功能
     if (!isDragging && Date.now() - dragStartTime < 200) {
-      const currentUrl = window.location.href;
-      const claudeUrl = `https://claude.ai/new?q=我希望您選擇一個專業的翻譯助理。我將向您提供需要翻譯的文字內容或網頁，請您提供準確、流暢且符合目標語言表達習慣的翻譯。請保持原文的語調、風格和內涵，確保翻譯的專業性和準確性。對於專業術語、慣用語或文化特定的表達，請選擇最適合的對應翻譯。如果遇到模糊或有多種理解的情況，請提供最合理的內容翻譯版本。請只提供翻譯結果，無需額外的解釋或說明。網頁連結：${currentUrl}`;
-      
-      // 計算右側位置
-      const rightPosition = window.screen.width - 800 - 100; // 螢幕寬度 - 視窗寬度 - 邊距
-      const topPosition = window.screenY + 50; // 當前視窗頂部 + 小邊距
-      
-      // 開小視窗在右側
-      window.open(claudeUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
+      handleTranslateAction();
     }
     
     isDragging = false;
@@ -269,7 +519,7 @@ function createTranslateButton() {
 // 創建搜尋按鈕
 function createSearchButton() {
   // 在Claude AI網站上不顯示懸浮按鈕
-  if (window.location.hostname === 'claude.ai') {
+  if (window.location.hostname === 'claude.ai'|| window.location.hostname === 'gemini.google.com') {
     return;
   }
   
@@ -369,18 +619,7 @@ function createSearchButton() {
     
     // 如果是點擊（不是拖拽且時間短），觸發搜尋功能
     if (!isDragging && Date.now() - dragStartTime < 200) {
-      const keyword = prompt('請輸入搜尋關鍵字：');
-      if (keyword && keyword.trim()) {
-        const searchPrompt = `請收集「${keyword.trim()}」的最新相關資訊，並遵守以下指引：只根據你實際使用搜尋工具檢索到的公開數據回答，不得依賴內建知識或推測內容。所有重要數據與事實，務必標明明確資料來源（如新聞、官方公告、專業網站），並於每點附上來源說明。若某項資訊未於檢索工具或外部資料中獲得，請明確回覆「查無此資料」或「資訊不足」，嚴禁自行假設或補足內容。`;
-        const claudeUrl = `https://claude.ai/new?q=${encodeURIComponent(searchPrompt)}`;
-        
-        // 計算右側位置
-        const rightPosition = window.screen.width - 800 - 100; // 螢幕寬度 - 視窗寬度 - 邊距
-        const topPosition = window.screenY + 50; // 當前視窗頂部 + 小邊距
-        
-        // 開小視窗在右側
-        window.open(claudeUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
-      }
+      handleSearchAction();
     }
     
     isDragging = false;
@@ -406,7 +645,7 @@ function createSearchButton() {
 // 創建OCR按鈕
 function createOCRButton() {
   // 在Claude AI網站上不顯示懸浮按鈕
-  if (window.location.hostname === 'claude.ai') {
+  if (window.location.hostname === 'claude.ai'|| window.location.hostname === 'gemini.google.com') {
     return;
   }
   
@@ -547,14 +786,19 @@ async function handleOCRCapture() {
       localStorage.setItem('claude-ocr-task', 'true');
       console.log('本地OCR任務標記已設置');
       
-      // 開啟Claude AI，使用URL參數傳遞OCR標記
-      const claudeUrl = `https://claude.ai/new?ocr=true&t=${Date.now()}`;
+      // 獲取AI URL
+      const aiUrl = await generateAIUrl('ocr', '');
+      
+      // 對於Gemini，OCR提示會自動輸入，無需額外提示
+      if (getCurrentAIEngine() === 'gemini') {
+        console.log('Gemini OCR: 圖片已複製，提示將自動輸入');
+      }
       
       // 計算右側位置
       const rightPosition = window.screen.width - 800 - 100; // 螢幕寬度 - 視窗寬度 - 邊距
       const topPosition = window.screenY + 50; // 當前視窗頂部 + 小邊距
       
-      window.open(claudeUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
+      window.open(aiUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
       
       console.log('OCR任務已啟動，URL參數已設置');
       
@@ -709,16 +953,21 @@ async function handleSelectAreaOCR() {
         if (success) {
           console.log('截圖成功，準備開啟Claude AI');
           
-          // 開啟Claude AI
+          // 開啟AI網站
           localStorage.setItem('claude-ocr-task', 'true');
-          const claudeUrl = `https://claude.ai/new?ocr=true&type=selectArea&t=${Date.now()}`;
-          console.log('開啟Claude AI URL:', claudeUrl);
+          const aiUrl = await generateAIUrl('ocr', '');
+          console.log('開啟AI URL:', aiUrl);
+          
+          // 對於Gemini，OCR提示會自動輸入
+          if (getCurrentAIEngine() === 'gemini') {
+            console.log('Gemini區域OCR: 圖片已複製，提示將自動輸入');
+          }
           
           // 計算右側位置
           const rightPosition = window.screen.width - 800 - 100; // 螢幕寬度 - 視窗寬度 - 邊距
           const topPosition = window.screenY + 50; // 當前視窗頂部 + 小邊距
           
-          window.open(claudeUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
+          window.open(aiUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
           
           resolve();
         } else {

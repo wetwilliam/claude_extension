@@ -22,6 +22,10 @@
     {
       "matches": ["*://claude.ai/*"],
       "js": ["claude_auto_handler.js", "test_ocr.js"]
+    },
+    {
+      "matches": ["*://gemini.google.com/*"],
+      "js": ["gemini_final.js"]
     }
   ],
   "action": {
