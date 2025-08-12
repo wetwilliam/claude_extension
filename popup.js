@@ -30,10 +30,34 @@ document.addEventListener('DOMContentLoaded', function() {
   initializeAIEngineSelector();
   
   // AI引擎選擇變更事件
-  aiEngineSelect.addEventListener('change', function() {
+  aiEngineSelect.addEventListener('change', async function() {
     const selectedEngine = aiEngineSelect.value;
+    const engineName = AI_ENGINES[selectedEngine].name;
+    
+    // 同時設置localStorage和chrome.storage.local
     localStorage.setItem('ai-engine', selectedEngine);
-    console.log('AI引擎已切換至:', AI_ENGINES[selectedEngine].name);
+    
+    try {
+      await chrome.storage.local.set({'ai-engine': selectedEngine});
+    } catch (error) {
+      // 靜默處理錯誤
+    }
+    
+    // 立即通知所有標籤頁的content script
+    chrome.tabs.query({}, function(tabs) {
+      tabs.forEach(tab => {
+        chrome.tabs.sendMessage(tab.id, {
+          action: 'aiEngineChanged',
+          engine: selectedEngine,
+          engineName: engineName
+        }, function(response) {
+          // 忽略錯誤，某些標籤頁可能沒有content script
+          if (chrome.runtime.lastError) {
+            // 靜默處理錯誤
+          }
+        });
+      });
+    });
   });
   
   // 總結按鈕點擊事件
@@ -189,10 +213,18 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   // 初始化AI引擎選擇器
-  function initializeAIEngineSelector() {
-    const savedEngine = localStorage.getItem('ai-engine') || 'claude';
+  async function initializeAIEngineSelector() {
+    let savedEngine = 'claude';
+    
+    try {
+      // 優先使用chrome.storage.local
+      const result = await chrome.storage.local.get(['ai-engine']);
+      savedEngine = result['ai-engine'] || localStorage.getItem('ai-engine') || 'claude';
+    } catch (error) {
+      savedEngine = localStorage.getItem('ai-engine') || 'claude';
+    }
+    
     aiEngineSelect.value = savedEngine;
-    console.log('當前AI引擎:', AI_ENGINES[savedEngine].name);
   }
   
   // 獲取當前選擇的AI引擎
@@ -232,14 +264,11 @@ document.addEventListener('DOMContentLoaded', function() {
       try {
         // 複製到剪貼簿作為備用
         await navigator.clipboard.writeText(fullPrompt);
-        console.log('Prompt已複製到剪貼簿:', fullPrompt);
         
         // 儲存到localStorage供Gemini頁面讀取
         localStorage.setItem('gemini-auto-prompt', fullPrompt);
         localStorage.setItem('gemini-auto-prompt-time', Date.now().toString());
         localStorage.setItem('gemini-auto-prompt-action', actionType);
-        
-        console.log('Prompt已儲存到localStorage:', fullPrompt);
         
         // 顯示提示訊息
         setTimeout(() => {
@@ -247,7 +276,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 300);
         
       } catch (error) {
-        console.error('處理prompt失敗:', error);
         alert('無法處理prompt，請手動複製以下內容：\n\n' + fullPrompt);
       }
       

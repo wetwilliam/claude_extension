@@ -88,7 +88,35 @@ function extractPageContent() {
 
 // 獲取當前選擇的AI引擎
 function getCurrentAIEngine() {
-  return localStorage.getItem('ai-engine') || 'claude';
+  // 優先使用localStorage（向後兼容）
+  let engine = localStorage.getItem('ai-engine');
+  
+  // 如果localStorage中沒有，嘗試從chrome.storage.local獲取緩存值
+  if (!engine && window.aiEngineCache) {
+    engine = window.aiEngineCache;
+  }
+  
+  // 默認值
+  if (!engine) {
+    engine = 'claude';
+  }
+  
+  return engine;
+}
+
+// 異步獲取AI引擎設置
+async function getCurrentAIEngineAsync() {
+  try {
+    const result = await chrome.storage.local.get(['ai-engine']);
+    const engine = result['ai-engine'] || localStorage.getItem('ai-engine') || 'claude';
+    
+    // 更新緩存
+    window.aiEngineCache = engine;
+    
+    return engine;
+  } catch (error) {
+    return getCurrentAIEngine();
+  }
 }
 
 // 生成AI URL並處理不同引擎
@@ -150,26 +178,61 @@ async function generateAIUrl(actionType, prompt, currentUrl = '') {
   }
 }
 
+// 獲取當前AI引擎的顯示名稱
+function getCurrentAIEngineName() {
+  const engine = getCurrentAIEngine();
+  return AI_ENGINES[engine].name;
+}
+
+// 更新所有按鈕的標題以反映當前AI引擎
+function updateButtonTitlesForCurrentEngine() {
+  const aiName = getCurrentAIEngineName();
+  
+  // 更新總結按鈕
+  const summaryBtn = document.getElementById('ai-summary-btn');
+  if (summaryBtn && !summaryBtn.classList.contains('hidden')) {
+    summaryBtn.title = `用 ${aiName} 總結此頁面 | 右鍵隱藏/顯示`;
+  }
+  
+  // 更新翻譯按鈕
+  const translateBtn = document.getElementById('ai-translate-btn');
+  if (translateBtn && !translateBtn.classList.contains('hidden')) {
+    translateBtn.title = `用 ${aiName} 翻譯此頁面為中文 | 右鍵隱藏/顯示`;
+  }
+  
+  // 更新OCR按鈕
+  const ocrBtn = document.getElementById('ai-ocr-btn');
+  if (ocrBtn && !ocrBtn.classList.contains('hidden')) {
+    ocrBtn.title = `截圖並用 ${aiName} 進行OCR文字識別 | 右鍵隱藏/顯示`;
+  }
+}
+
+// 全域函數用於手動刷新按鈕標題
+window.refreshAIButtonTitles = function() {
+  updateButtonTitlesForCurrentEngine();
+};
+
 // 創建懸浮按鈕
 function createSummaryButton() {
-  // 在Claude AI網站上不顯示懸浮按鈕
+  // 在AI網站上不顯示懸浮按鈕
   if (window.location.hostname === 'claude.ai'|| window.location.hostname === 'gemini.google.com') {
     return;
   }
   
   // 檢查是否已經存在按鈕，避免重複創建
-  if (document.getElementById('claude-summary-btn')) {
+  if (document.getElementById('ai-summary-btn')) {
     return;
   }
 
   const button = document.createElement('button');
-  button.id = 'claude-summary-btn';
+  button.id = 'ai-summary-btn';
   button.className = 'claude-summary-button';
-  button.title = '用 Claude AI 總結此頁面 | 右鍵隱藏/顯示';
+  const aiName = getCurrentAIEngineName();
+  button.title = `用 ${aiName} 總結此頁面 | 右鍵隱藏/顯示`;
   
   // 從localStorage讀取按鈕位置和狀態
-  const savedPosition = localStorage.getItem('claude-button-position');
-  const savedHidden = localStorage.getItem('claude-button-hidden') === 'true';
+  const savedPosition = localStorage.getItem('ai-summary-position');
+  const savedHidden = localStorage.getItem('ai-summary-hidden') === 'true';
   
   if (savedPosition) {
     const pos = JSON.parse(savedPosition);
@@ -245,7 +308,7 @@ function createSummaryButton() {
     // 如果是拖拽，保存位置
     if (isDragging) {
       const rect = button.getBoundingClientRect();
-      localStorage.setItem('claude-button-position', JSON.stringify({
+      localStorage.setItem('ai-summary-position', JSON.stringify({
         x: rect.left,
         y: rect.top
       }));
@@ -265,11 +328,12 @@ function createSummaryButton() {
     
     button.classList.toggle('hidden');
     const isHidden = button.classList.contains('hidden');
-    localStorage.setItem('claude-button-hidden', isHidden);
+    localStorage.setItem('ai-summary-hidden', isHidden);
     
+    const aiName = getCurrentAIEngineName();
     button.title = isHidden ? 
       '點擊顯示 | 拖拽移動 | 右鍵切換' : 
-      '用 Claude AI 總結此頁面 | 拖拽移動 | 右鍵隱藏';
+      `用 ${aiName} 總結此頁面 | 拖拽移動 | 右鍵隱藏`;
   });
 
   // 將按鈕添加到頁面
@@ -392,24 +456,25 @@ async function handleSearchAction() {
 
 // 創建翻譯按鈕
 function createTranslateButton() {
-  // 在Claude AI網站上不顯示懸浮按鈕
+  // 在AI網站上不顯示懸浮按鈕
   if (window.location.hostname === 'claude.ai' || window.location.hostname === 'gemini.google.com') {
     return;
   }
   
   // 檢查是否已經存在按鈕，避免重複創建
-  if (document.getElementById('claude-translate-btn')) {
+  if (document.getElementById('ai-translate-btn')) {
     return;
   }
 
   const button = document.createElement('button');
-  button.id = 'claude-translate-btn';
+  button.id = 'ai-translate-btn';
   button.className = 'claude-translate-button';
-  button.title = '用 Claude AI 翻譯此頁面為中文 | 右鍵隱藏/顯示';
+  const aiName = getCurrentAIEngineName();
+  button.title = `用 ${aiName} 翻譯此頁面為中文 | 右鍵隱藏/顯示`;
   
   // 從localStorage讀取按鈕位置和狀態
-  const savedPosition = localStorage.getItem('claude-translate-position');
-  const savedHidden = localStorage.getItem('claude-translate-hidden') === 'true';
+  const savedPosition = localStorage.getItem('ai-translate-position');
+  const savedHidden = localStorage.getItem('ai-translate-hidden') === 'true';
   
   if (savedPosition) {
     const pos = JSON.parse(savedPosition);
@@ -485,7 +550,7 @@ function createTranslateButton() {
     // 如果是拖拽，保存位置
     if (isDragging) {
       const rect = button.getBoundingClientRect();
-      localStorage.setItem('claude-translate-position', JSON.stringify({
+      localStorage.setItem('ai-translate-position', JSON.stringify({
         x: rect.left,
         y: rect.top
       }));
@@ -505,11 +570,12 @@ function createTranslateButton() {
     
     button.classList.toggle('hidden');
     const isHidden = button.classList.contains('hidden');
-    localStorage.setItem('claude-translate-hidden', isHidden);
+    localStorage.setItem('ai-translate-hidden', isHidden);
     
+    const aiName = getCurrentAIEngineName();
     button.title = isHidden ? 
       '點擊顯示 | 拖拽移動 | 右鍵切換' : 
-      '用 Claude AI 翻譯此頁面為中文 | 拖拽移動 | 右鍵隱藏';
+      `用 ${aiName} 翻譯此頁面為中文 | 拖拽移動 | 右鍵隱藏`;
   });
 
   // 將按鈕添加到頁面
@@ -518,24 +584,24 @@ function createTranslateButton() {
 
 // 創建搜尋按鈕
 function createSearchButton() {
-  // 在Claude AI網站上不顯示懸浮按鈕
+  // 在AI網站上不顯示懸浮按鈕
   if (window.location.hostname === 'claude.ai'|| window.location.hostname === 'gemini.google.com') {
     return;
   }
   
   // 檢查是否已經存在按鈕，避免重複創建
-  if (document.getElementById('claude-search-btn')) {
+  if (document.getElementById('ai-search-btn')) {
     return;
   }
 
   const button = document.createElement('button');
-  button.id = 'claude-search-btn';
+  button.id = 'ai-search-btn';
   button.className = 'claude-search-button';
   button.title = '自定義搜尋功能 | 右鍵隱藏/顯示';
   
   // 從localStorage讀取按鈕位置和狀態
-  const savedPosition = localStorage.getItem('claude-search-position');
-  const savedHidden = localStorage.getItem('claude-search-hidden') === 'true';
+  const savedPosition = localStorage.getItem('ai-search-position');
+  const savedHidden = localStorage.getItem('ai-search-hidden') === 'true';
   
   if (savedPosition) {
     const pos = JSON.parse(savedPosition);
@@ -611,7 +677,7 @@ function createSearchButton() {
     // 如果是拖拽，保存位置
     if (isDragging) {
       const rect = button.getBoundingClientRect();
-      localStorage.setItem('claude-search-position', JSON.stringify({
+      localStorage.setItem('ai-search-position', JSON.stringify({
         x: rect.left,
         y: rect.top
       }));
@@ -631,7 +697,7 @@ function createSearchButton() {
     
     button.classList.toggle('hidden');
     const isHidden = button.classList.contains('hidden');
-    localStorage.setItem('claude-search-hidden', isHidden);
+    localStorage.setItem('ai-search-hidden', isHidden);
     
     button.title = isHidden ? 
       '點擊顯示 | 拖拽移動 | 右鍵切換' : 
@@ -644,24 +710,25 @@ function createSearchButton() {
 
 // 創建OCR按鈕
 function createOCRButton() {
-  // 在Claude AI網站上不顯示懸浮按鈕
+  // 在AI網站上不顯示懸浮按鈕
   if (window.location.hostname === 'claude.ai'|| window.location.hostname === 'gemini.google.com') {
     return;
   }
   
   // 檢查是否已經存在按鈕，避免重複創建
-  if (document.getElementById('claude-ocr-btn')) {
+  if (document.getElementById('ai-ocr-btn')) {
     return;
   }
 
   const button = document.createElement('button');
-  button.id = 'claude-ocr-btn';
+  button.id = 'ai-ocr-btn';
   button.className = 'claude-ocr-button';
-  button.title = '截圖並用 Claude AI 進行OCR文字識別 | 右鍵隱藏/顯示';
+  const aiName = getCurrentAIEngineName();
+  button.title = `截圖並用 ${aiName} 進行OCR文字識別 | 右鍵隱藏/顯示`;
   
   // 從localStorage讀取按鈕位置和狀態
-  const savedPosition = localStorage.getItem('claude-ocr-position');
-  const savedHidden = localStorage.getItem('claude-ocr-hidden') === 'true';
+  const savedPosition = localStorage.getItem('ai-ocr-position');
+  const savedHidden = localStorage.getItem('ai-ocr-hidden') === 'true';
   
   if (savedPosition) {
     const pos = JSON.parse(savedPosition);
@@ -737,7 +804,7 @@ function createOCRButton() {
     // 如果是拖拽，保存位置
     if (isDragging) {
       const rect = button.getBoundingClientRect();
-      localStorage.setItem('claude-ocr-position', JSON.stringify({
+      localStorage.setItem('ai-ocr-position', JSON.stringify({
         x: rect.left,
         y: rect.top
       }));
@@ -757,11 +824,12 @@ function createOCRButton() {
     
     button.classList.toggle('hidden');
     const isHidden = button.classList.contains('hidden');
-    localStorage.setItem('claude-ocr-hidden', isHidden);
+    localStorage.setItem('ai-ocr-hidden', isHidden);
     
+    const aiName = getCurrentAIEngineName();
     button.title = isHidden ? 
       '點擊顯示 | 拖拽移動 | 右鍵切換' : 
-      '截圖並用 Claude AI 進行OCR文字識別 | 拖拽移動 | 右鍵隱藏';
+      `截圖並用 ${aiName} 進行OCR文字識別 | 拖拽移動 | 右鍵隱藏`;
   });
 
   // 將按鈕添加到頁面
@@ -770,7 +838,7 @@ function createOCRButton() {
 
 // OCR截圖處理函數
 async function handleOCRCapture() {
-  const button = document.getElementById('claude-ocr-btn');
+  const button = document.getElementById('ai-ocr-btn');
   
   // 顯示載入狀態
   button.classList.add('capturing');
@@ -1119,10 +1187,10 @@ function cropImageInContent(dataUrl, area) {
 // 切換所有懸浮按鈕的顯示/隱藏狀態
 function toggleAllFloatingButtons() {
   const buttons = [
-    document.getElementById('claude-summary-btn'),
-    document.getElementById('claude-translate-btn'),
-    document.getElementById('claude-search-btn'),
-    document.getElementById('claude-ocr-btn')
+    document.getElementById('ai-summary-btn'),
+    document.getElementById('ai-translate-btn'),
+    document.getElementById('ai-search-btn'),
+    document.getElementById('ai-ocr-btn')
   ];
   
   // 檢查目前狀態，如果有任何一個按鈕是隱藏的，就全部顯示；否則全部隱藏
@@ -1134,34 +1202,35 @@ function toggleAllFloatingButtons() {
         // 顯示按鈕
         btn.classList.remove('hidden');
         // 更新各按鈕的localStorage狀態
-        if (btn.id === 'claude-summary-btn') {
-          localStorage.setItem('claude-button-hidden', 'false');
-          btn.title = '用 Claude AI 總結此頁面 | 拖拽移動 | 右鍵隱藏';
-        } else if (btn.id === 'claude-translate-btn') {
-          localStorage.setItem('claude-translate-hidden', 'false');
-          btn.title = '用 Claude AI 翻譯此頁面為中文 | 拖拽移動 | 右鍵隱藏';
-        } else if (btn.id === 'claude-search-btn') {
-          localStorage.setItem('claude-search-hidden', 'false');
+        const aiName = getCurrentAIEngineName();
+        if (btn.id === 'ai-summary-btn') {
+          localStorage.setItem('ai-summary-hidden', 'false');
+          btn.title = `用 ${aiName} 總結此頁面 | 拖拽移動 | 右鍵隱藏`;
+        } else if (btn.id === 'ai-translate-btn') {
+          localStorage.setItem('ai-translate-hidden', 'false');
+          btn.title = `用 ${aiName} 翻譯此頁面為中文 | 拖拽移動 | 右鍵隱藏`;
+        } else if (btn.id === 'ai-search-btn') {
+          localStorage.setItem('ai-search-hidden', 'false');
           btn.title = '自定義搜尋功能 | 拖拽移動 | 右鍵隱藏';
-        } else if (btn.id === 'claude-ocr-btn') {
-          localStorage.setItem('claude-ocr-hidden', 'false');
-          btn.title = '截圖並用 Claude AI 進行OCR文字識別 | 拖拽移動 | 右鍵隱藏';
+        } else if (btn.id === 'ai-ocr-btn') {
+          localStorage.setItem('ai-ocr-hidden', 'false');
+          btn.title = `截圖並用 ${aiName} 進行OCR文字識別 | 拖拽移動 | 右鍵隱藏`;
         }
       } else {
         // 隱藏按鈕
         btn.classList.add('hidden');
         // 更新各按鈕的localStorage狀態
-        if (btn.id === 'claude-summary-btn') {
-          localStorage.setItem('claude-button-hidden', 'true');
+        if (btn.id === 'ai-summary-btn') {
+          localStorage.setItem('ai-summary-hidden', 'true');
           btn.title = '點擊顯示 | 拖拽移動 | 右鍵切換';
-        } else if (btn.id === 'claude-translate-btn') {
-          localStorage.setItem('claude-translate-hidden', 'true');
+        } else if (btn.id === 'ai-translate-btn') {
+          localStorage.setItem('ai-translate-hidden', 'true');
           btn.title = '點擊顯示 | 拖拽移動 | 右鍵切換';
-        } else if (btn.id === 'claude-search-btn') {
-          localStorage.setItem('claude-search-hidden', 'true');
+        } else if (btn.id === 'ai-search-btn') {
+          localStorage.setItem('ai-search-hidden', 'true');
           btn.title = '點擊顯示 | 拖拽移動 | 右鍵切換';
-        } else if (btn.id === 'claude-ocr-btn') {
-          localStorage.setItem('claude-ocr-hidden', 'true');
+        } else if (btn.id === 'ai-ocr-btn') {
+          localStorage.setItem('ai-ocr-hidden', 'true');
           btn.title = '點擊顯示 | 拖拽移動 | 右鍵切換';
         }
       }
@@ -1174,14 +1243,23 @@ function toggleAllFloatingButtons() {
 // 獲取懸浮按鈕的顯示狀態
 function getFloatingButtonsState() {
   const buttons = [
-    document.getElementById('claude-summary-btn'),
-    document.getElementById('claude-translate-btn'),
-    document.getElementById('claude-search-btn'),
-    document.getElementById('claude-ocr-btn')
+    document.getElementById('ai-summary-btn'),
+    document.getElementById('ai-translate-btn'),
+    document.getElementById('ai-search-btn'),
+    document.getElementById('ai-ocr-btn')
   ];
   
   // 如果所有按鈕都隱藏，返回true；否則返回false
   return buttons.every(btn => btn && btn.classList.contains('hidden'));
+}
+
+// 初始化AI引擎設置
+async function initializeAIEngineSettings() {
+  try {
+    await getCurrentAIEngineAsync();
+  } catch (error) {
+    // 靜默處理錯誤
+  }
 }
 
 // 等待頁面載入完成後創建按鈕
@@ -1191,12 +1269,24 @@ if (document.readyState === 'loading') {
     createTranslateButton();
     createSearchButton();
     createOCRButton();
+    
+    // 初始化AI引擎設置並更新按鈕標題
+    setTimeout(async () => {
+      await initializeAIEngineSettings();
+      updateButtonTitlesForCurrentEngine();
+    }, 100);
   });
 } else {
   createSummaryButton();
   createTranslateButton();
   createSearchButton();
   createOCRButton();
+  
+  // 初始化AI引擎設置並更新按鈕標題
+  setTimeout(async () => {
+    await initializeAIEngineSettings();
+    updateButtonTitlesForCurrentEngine();
+  }, 100);
 }
 
 // 監聽頁面變化（適用於單頁應用）
@@ -1205,15 +1295,35 @@ new MutationObserver(() => {
   const url = location.href;
   if (url !== lastUrl) {
     lastUrl = url;
-    // 頁面URL改變時，確保按鈕存在
+    // 頁面URL改變時，確保按鈕存在並更新標題
     setTimeout(() => {
       createSummaryButton();
       createTranslateButton();
       createSearchButton();
       createOCRButton();
+      updateButtonTitlesForCurrentEngine();
     }, 1000);
   }
 }).observe(document, { subtree: true, childList: true });
+
+// 監聽localStorage變化以檢測AI引擎切換
+window.addEventListener('storage', function(e) {
+  if (e.key === 'ai-engine') {
+    setTimeout(() => {
+      updateButtonTitlesForCurrentEngine();
+    }, 100);
+  }
+});
+
+// 定期檢查AI引擎設置並更新按鈕標題（備用方案）
+let lastEngine = getCurrentAIEngine();
+setInterval(() => {
+  const currentEngine = getCurrentAIEngine();
+  if (currentEngine !== lastEngine) {
+    lastEngine = currentEngine;
+    updateButtonTitlesForCurrentEngine();
+  }
+}, 500);
 
 // 監聽來自popup的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -1250,6 +1360,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'getFloatingButtonsState') {
     const hidden = getFloatingButtonsState();
     sendResponse({success: true, hidden: hidden});
+    return true;
+  }
+  
+  // 處理AI引擎變更通知
+  if (request.action === 'aiEngineChanged') {
+    // 更新本地緩存
+    lastEngine = request.engine;
+    window.aiEngineCache = request.engine;
+    
+    // 同時更新localStorage作為備份
+    localStorage.setItem('ai-engine', request.engine);
+    
+    // 更新按鈕標題
+    updateButtonTitlesForCurrentEngine();
+    
+    sendResponse({success: true, updated: true});
     return true;
   }
 });

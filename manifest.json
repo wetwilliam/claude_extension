@@ -5,7 +5,8 @@
   "description": "在任何網頁上添加懸浮按鈕，一鍵用Claude AI總結當前頁面",
   "permissions": [
     "activeTab",
-    "tabs"
+    "tabs",
+    "storage"
   ],
   "host_permissions": [
     "<all_urls>"
