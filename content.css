@@ -34,8 +34,9 @@
 }
 
 .claude-summary-button.hidden {
-  opacity: 0.3;
-  transform: scale(0.8);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
 }
 
 .claude-summary-button::before {
@@ -88,8 +89,9 @@
 }
 
 .claude-translate-button.hidden {
-  opacity: 0.3;
-  transform: scale(0.8);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
 }
 
 .claude-translate-button::before {
@@ -142,8 +144,9 @@
 }
 
 .claude-ocr-button.hidden {
-  opacity: 0.3;
-  transform: scale(0.8);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
 }
 
 .claude-ocr-button.capturing {
@@ -210,8 +213,9 @@
 }
 
 .claude-search-button.hidden {
-  opacity: 0.3;
-  transform: scale(0.8);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
 }
 
 .claude-search-button::before {
