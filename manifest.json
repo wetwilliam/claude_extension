@@ -26,7 +26,7 @@
     },
     {
       "matches": ["*://gemini.google.com/*"],
-      "js": ["gemini_final.js"]
+      "js": ["gemini_handler.js"]
     }
   ],
   "action": {
