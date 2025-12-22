@@ -90,17 +90,26 @@ function extractPageContent() {
 function getCurrentAIEngine() {
   // 優先使用localStorage（向後兼容）
   let engine = localStorage.getItem('ai-engine');
-  
+
   // 如果localStorage中沒有，嘗試從chrome.storage.local獲取緩存值
   if (!engine && window.aiEngineCache) {
     engine = window.aiEngineCache;
+    console.log('🔍 從緩存讀取 AI 引擎:', engine);
   }
-  
+
   // 默認值
   if (!engine) {
     engine = 'claude';
+    console.log('🔧 使用預設 AI 引擎:', engine);
   }
-  
+
+  // 驗證引擎值是否有效
+  if (!['claude', 'gemini'].includes(engine)) {
+    console.warn('⚠️ 無效的 AI 引擎值，重置為 claude:', engine);
+    engine = 'claude';
+    localStorage.setItem('ai-engine', engine);
+  }
+
   return engine;
 }
 
@@ -202,15 +211,15 @@ function createDockContainer() {
   dock.id = 'ai-dock-container';
   dock.className = 'ai-dock-container';
 
-  // 載入保存的位置或使用預設位置
-  const savedPosition = localStorage.getItem('ai-dock-position');
-  if (savedPosition) {
-    const pos = JSON.parse(savedPosition);
+  // 載入保存的位置
+  const savedPositionStr = localStorage.getItem('ai-dock-position');
+  if (savedPositionStr) {
+    const savedPosition = JSON.parse(savedPositionStr);
     dock.style.right = 'auto';
-    dock.style.left = pos.x + 'px';
-    dock.style.top = pos.y + 'px';
+    dock.style.left = savedPosition.x + 'px';
+    dock.style.top = savedPosition.y + 'px';
     dock.style.transform = 'none';
-    console.log('📍 載入保存的位置:', pos);
+    console.log('📍 載入保存的位置:', savedPosition);
   }
 
   // 檢查是否應該隱藏
@@ -327,21 +336,79 @@ function attachDockEventListeners(dock) {
     }
 
     if (isDragging) {
+      // 計算新位置
       const newX = dockStartX + deltaX;
       const newY = dockStartY + deltaY;
 
-      // 限制在視窗範圍內
-      const maxX = window.innerWidth - 60;
-      const maxY = window.innerHeight - dock.offsetHeight;
+      // 應用邊緣限制和吸附
+      const edgePosition = applyEdgeConstraints(newX, newY);
 
-      const constrainedX = Math.max(0, Math.min(newX, maxX));
-      const constrainedY = Math.max(0, Math.min(newY, maxY));
-
-      dock.style.left = constrainedX + 'px';
-      dock.style.top = constrainedY + 'px';
+      dock.style.left = edgePosition.x + 'px';
+      dock.style.top = edgePosition.y + 'px';
       dock.style.right = 'auto';
       dock.style.transform = 'none';
     }
+  }
+
+  // 邊緣限制和吸附功能
+  function applyEdgeConstraints(x, y) {
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    const dockWidth = 50; // 最小化狀態寬度估算
+    const dockHeight = dock.offsetHeight || 200;
+
+    // 定義邊緣閾值（距離邊緣多遠開始吸附）
+    const SNAP_THRESHOLD = 30;
+    const EDGE_MARGIN = 10;
+
+    // 計算與各邊緣的距離
+    const distToLeft = x;
+    const distToRight = windowWidth - (x + dockWidth);
+    const distToTop = y;
+    const distToBottom = windowHeight - (y + dockHeight);
+
+    // 決定最接近的邊緣
+    let finalX = x;
+    let finalY = y;
+    let edge = '';
+
+    // 水平方向：左邊或右邊
+    if (distToLeft < distToRight) {
+      // 更接近左邊
+      if (distToLeft < SNAP_THRESHOLD) {
+        finalX = EDGE_MARGIN;
+        edge = 'left';
+      }
+    } else {
+      // 更接近右邊
+      if (distToRight < SNAP_THRESHOLD) {
+        finalX = windowWidth - dockWidth - EDGE_MARGIN;
+        edge = 'right';
+      }
+    }
+
+    // 垂直方向：上邊或下邊
+    if (distToTop < distToBottom) {
+      // 更接近上邊
+      if (distToTop < SNAP_THRESHOLD) {
+        finalY = EDGE_MARGIN;
+        edge = edge ? edge + '-top' : 'top';
+      }
+    } else {
+      // 更接近下邊
+      if (distToBottom < SNAP_THRESHOLD) {
+        finalY = windowHeight - dockHeight - EDGE_MARGIN;
+        edge = edge ? edge + '-bottom' : 'bottom';
+      }
+    }
+
+    // 確保不超出視窗範圍
+    finalX = Math.max(0, Math.min(finalX, windowWidth - dockWidth));
+    finalY = Math.max(0, Math.min(finalY, windowHeight - dockHeight));
+
+    console.log(`🎯 邊緣吸附: ${edge}, 位置: (${finalX}, ${finalY})`);
+
+    return { x: finalX, y: finalY };
   }
 
   function handleMouseUp(e) {
@@ -351,23 +418,127 @@ function attachDockEventListeners(dock) {
     dock.classList.remove('dragging');
 
     if (isDragging) {
+      // 獲取當前位置並應用邊緣限制
       const rect = dock.getBoundingClientRect();
-      localStorage.setItem('ai-dock-position', JSON.stringify({
-        x: rect.left,
-        y: rect.top
-      }));
-      console.log('💾 保存新位置:', { x: rect.left, y: rect.top });
+      const edgePosition = applyEdgeConstraints(rect.left, rect.top);
+
+      // 更新到邊緣位置
+      dock.style.left = edgePosition.x + 'px';
+      dock.style.top = edgePosition.y + 'px';
+      dock.style.right = 'auto';
+      dock.style.transform = 'none';
+
+      // 保存邊緣對齊的位置
+      const finalPosition = {
+        x: edgePosition.x,
+        y: edgePosition.y,
+        edge: getEdgeInfo(edgePosition.x, edgePosition.y)
+      };
+
+      localStorage.setItem('ai-dock-position', JSON.stringify(finalPosition));
+      console.log('💾 保存邊緣位置:', finalPosition);
     }
 
     isDragging = false;
   }
 
+  // 獲取邊緣信息
+  function getEdgeInfo(x, y) {
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    const dockWidth = 50;
+    const dockHeight = dock.offsetHeight || 200;
+    const EDGE_MARGIN = 10;
+
+    const edges = [];
+    if (Math.abs(x - EDGE_MARGIN) < 5) edges.push('left');
+    if (Math.abs((x + dockWidth) - (windowWidth - EDGE_MARGIN)) < 5) edges.push('right');
+    if (Math.abs(y - EDGE_MARGIN) < 5) edges.push('top');
+    if (Math.abs((y + dockHeight) - (windowHeight - EDGE_MARGIN)) < 5) edges.push('bottom');
+
+    return edges.join('-');
+  }
+
+  // 位置校正函數 - 確保舊位置也能貼合邊緣
+  function correctSavedPosition() {
+    // 從 localStorage 重新讀取位置，避免作用域問題
+    const savedPositionStr = localStorage.getItem('ai-dock-position');
+    if (savedPositionStr) {
+      const savedPosition = JSON.parse(savedPositionStr);
+      if (savedPosition && !savedPosition.edge) {
+        console.log('🔄 檢測到舊位置格式，應用邊緣限制');
+
+        // 等待 DOM 更新完成
+        setTimeout(() => {
+          const edgePosition = applyEdgeConstraints(savedPosition.x, savedPosition.y);
+
+          dock.style.left = edgePosition.x + 'px';
+          dock.style.top = edgePosition.y + 'px';
+          dock.style.right = 'auto';
+          dock.style.transform = 'none';
+
+          // 更新保存的位置為邊緣對齊格式
+          const updatedPosition = {
+            x: edgePosition.x,
+            y: edgePosition.y,
+            edge: getEdgeInfo(edgePosition.x, edgePosition.y)
+          };
+
+          localStorage.setItem('ai-dock-position', JSON.stringify(updatedPosition));
+          console.log('💾 位置已校正並保存:', updatedPosition);
+        }, 100);
+      }
+    }
+  }
+
+  // 在創建完成後立即校正位置
+  correctSavedPosition();
+
   // AI 引擎切換按鈕
-  const engineToggle = dock.querySelector('#ai-engine-toggle');
-  engineToggle.addEventListener('click', function(e) {
-    e.stopPropagation();
-    toggleAIEngine();
-  });
+  let engineToggle = dock.querySelector('#ai-engine-toggle');
+  console.log('🔍 初始查找引擎按鈕:', engineToggle);
+
+  if (engineToggle) {
+    // 添加調試日誌
+    console.log('📋 引擎按鈕 ID:', engineToggle.id);
+    console.log('📋 引擎按鈕 類:', engineToggle.className);
+    console.log('📋 引擎按鈕 data-engine:', engineToggle.getAttribute('data-engine'));
+
+    // 直接綁定事件監聽器（不用 replaceWith，避免元素丟失）
+    engineToggle.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('🖱️ 點擊 AI 引擎切換按鈕');
+
+      // 確保 toggleAIEngine 函數存在
+      if (typeof toggleAIEngine === 'function') {
+        toggleAIEngine();
+      } else {
+        console.error('❌ toggleAIEngine 函數不存在');
+      }
+    });
+
+    console.log('✅ AI 引擎切換事件監聽器已綁定');
+
+    // 添加雙重保護：檢查監聽器是否正確綁定
+    setTimeout(() => {
+      const testBtn = document.getElementById('ai-engine-toggle');
+      if (testBtn) {
+        console.log('🧪 延遲檢查 - 按鈕仍存在:', testBtn.id);
+        console.log('🧪 事件監聽器數量:', getEventListeners ? getEventListeners(testBtn).click?.length : '無法檢查');
+      }
+    }, 100);
+
+  } else {
+    console.error('❌ 找不到 AI 引擎切換按鈕');
+
+    // 調試查找所有可能的按鈕
+    const allButtons = dock.querySelectorAll('.ai-dock-button');
+    console.log('🔍 Dock 中所有按鈕:', Array.from(allButtons).map(btn => btn.id || btn.className));
+
+    // 手動創建按鈕作為備用
+    createBackupEngineToggle(dock);
+  }
 
   // 按鈕點擊處理
   dock.querySelector('#ai-summary-btn').addEventListener('click', (e) => {
@@ -402,24 +573,131 @@ function attachDockEventListeners(dock) {
   console.log('✅ 事件監聽器附加完成');
 }
 
-// AI 引擎切換函數
-async function toggleAIEngine() {
-  const currentEngine = getCurrentAIEngine();
-  const newEngine = currentEngine === 'claude' ? 'gemini' : 'claude';
-  const engineName = AI_ENGINES[newEngine].name;
+// 備用引擎切換按鈕創建函數
+function createBackupEngineToggle(dock) {
+  console.log('🔧 創建備用引擎切換按鈕');
 
-  console.log(`🔄 切換 AI 引擎: ${currentEngine} → ${newEngine}`);
+  const aiEngine = getCurrentAIEngine();
+  const aiEngineName = AI_ENGINES[aiEngine].name;
 
-  // 更新儲存
-  localStorage.setItem('ai-engine', newEngine);
+  const backupBtn = document.createElement('div');
+  backupBtn.id = 'ai-engine-toggle-backup';
+  backupBtn.className = 'ai-dock-button ai-engine-toggle';
+  backupBtn.setAttribute('data-engine', aiEngine);
+  backupBtn.title = `當前 AI: ${aiEngineName} - 點擊切換`;
+  backupBtn.style.cursor = 'pointer';
 
-  try {
-    await chrome.storage.local.set({'ai-engine': newEngine});
-  } catch (error) {
-    console.warn('chrome.storage.local 設置失敗:', error);
+  backupBtn.innerHTML = `
+    <span class="ai-engine-icon">${aiEngine === 'claude' ? '🟣' : '🔵'}</span>
+    <span class="ai-engine-label">${aiEngine === 'claude' ? 'Claude' : 'Gemini'}</span>
+  `;
+
+  // 綁定事件監聽器
+  backupBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('🖱️ 點擊備用 AI 引擎切換按鈕');
+
+    if (typeof toggleAIEngine === 'function') {
+      toggleAIEngine();
+    } else {
+      console.error('❌ toggleAIEngine 函數不存在');
+    }
+  });
+
+  // 插入到 Dock 開頭
+  if (dock.firstChild) {
+    dock.insertBefore(backupBtn, dock.firstChild);
+  } else {
+    dock.appendChild(backupBtn);
   }
 
-  // 更新視覺指示器
+  console.log('✅ 備用引擎切換按鈕已創建');
+}
+
+// 手動測試函數 - 可以在控制台調用
+function testEngineToggle() {
+  console.log('🧪 開始手動測試引擎切換功能');
+
+  const btn = document.getElementById('ai-engine-toggle') || document.getElementById('ai-engine-toggle-backup');
+
+  if (btn) {
+    console.log('📋 找到引擎按鈕:', btn.id);
+    console.log('📋 按鈕類:', btn.className);
+    console.log('📋 當前引擎:', getCurrentAIEngine());
+
+    // 模擬點擊
+    btn.click();
+
+    console.log('📋 切換後引擎:', getCurrentAIEngine());
+  } else {
+    console.error('❌ 找不到任何引擎切換按鈕');
+
+    // 列出 Dock 中的所有元素
+    const dock = document.getElementById('ai-dock-container');
+    if (dock) {
+      console.log('🔍 Dock 中所有元素:', Array.from(dock.children).map(child => ({
+        id: child.id,
+        class: child.className,
+        tag: child.tagName
+      })));
+    } else {
+      console.error('❌ 找不到 Dock 容器');
+    }
+  }
+}
+
+// 將測試函數暴露到全局作用域，方便調試
+window.testEngineToggle = testEngineToggle;
+window.toggleAIEngine = toggleAIEngine;
+
+// AI 引擎切換函數 - 修復版本
+async function toggleAIEngine() {
+  try {
+    const currentEngine = getCurrentAIEngine();
+    const newEngine = currentEngine === 'claude' ? 'gemini' : 'claude';
+    const engineName = AI_ENGINES[newEngine].name;
+
+    console.log(`🔄 切換 AI 引擎: ${currentEngine} → ${newEngine}`);
+
+    // 檢查是否已經是目標引擎（避免重複切換）
+    if (currentEngine === newEngine) {
+      console.log(`⚠️ 已經是 ${engineName}，無需切換`);
+      return;
+    }
+
+    // 原子性地更新狀態
+    localStorage.setItem('ai-engine', newEngine);
+    window.aiEngineCache = newEngine; // 更新緩存
+
+    // 異步更新 chrome.storage（不等待完成）
+    chrome.storage.local.set({'ai-engine': newEngine}).catch(error => {
+      console.warn('chrome.storage.local 設置失敗:', error);
+    });
+
+    // 立即更新視覺指示器
+    updateEngineUI(newEngine, engineName);
+
+    // 延遲更新其他元素，避免競爭條件
+    setTimeout(() => {
+      updateDockButtonTitles();
+    }, 50);
+
+    // 異步通知其他標籤頁
+    notifyOtherTabs(newEngine, engineName);
+
+    // 顯示確認通知
+    showTemporaryNotification(`已切換到 ${engineName}`);
+    console.log(`✅ AI 引擎已切換到: ${engineName}`);
+
+  } catch (error) {
+    console.error('❌ AI 引擎切換失敗:', error);
+    showTemporaryNotification('切換失敗，請重試');
+  }
+}
+
+// 更新引擎 UI 的輔助函數
+function updateEngineUI(newEngine, engineName) {
   const engineToggle = document.getElementById('ai-engine-toggle');
   if (engineToggle) {
     engineToggle.setAttribute('data-engine', newEngine);
@@ -428,14 +706,24 @@ async function toggleAIEngine() {
     const icon = engineToggle.querySelector('.ai-engine-icon');
     const label = engineToggle.querySelector('.ai-engine-label');
 
-    if (icon) icon.textContent = newEngine === 'claude' ? '🟣' : '🔵';
-    if (label) label.textContent = newEngine === 'claude' ? 'Claude' : 'Gemini';
+    if (icon) {
+      const iconText = newEngine === 'claude' ? '🟣' : '🔵';
+      icon.textContent = iconText;
+      console.log(`🎨 更新圖標: ${iconText}`);
+    }
+
+    if (label) {
+      const labelText = newEngine === 'claude' ? 'Claude' : 'Gemini';
+      label.textContent = labelText;
+      console.log(`🏷️ 更新標籤: ${labelText}`);
+    }
+  } else {
+    console.warn('⚠️ 找不到 AI 引擎切換按鈕');
   }
+}
 
-  // 更新所有按鈕標題
-  updateDockButtonTitles();
-
-  // 通知其他標籤頁
+// 通知其他標籤頁的輔助函數
+function notifyOtherTabs(newEngine, engineName) {
   try {
     chrome.tabs.query({}, function(tabs) {
       tabs.forEach(tab => {
@@ -454,11 +742,6 @@ async function toggleAIEngine() {
   } catch (error) {
     console.warn('通知其他標籤頁失敗:', error);
   }
-
-  // 顯示確認通知
-  showTemporaryNotification(`已切換到 ${engineName}`);
-
-  console.log(`✅ AI 引擎已切換到: ${engineName}`);
 }
 
 // 更新 Dock 按鈕標題
