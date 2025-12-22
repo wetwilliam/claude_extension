@@ -310,12 +310,6 @@
 
       // 嘗試使用剪貼簿方式（更可靠）
       try {
-        const range = document.createRange();
-        range.selectNodeContents(inputBox);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-
         await navigator.clipboard.writeText(promptText);
         document.execCommand('paste');
 
@@ -402,9 +396,12 @@
           sendButton.focus();
           sendButton.click();
           console.log('✅ 方法1: 直接 click() 完成');
+          return true;
+        } catch (error) {
+          console.warn('⚠️ 發送按鈕點擊失敗:', error);
 
           // 備用點擊方式
-          setTimeout(() => {
+          try {
             const clickEvent = new MouseEvent('click', {
               bubbles: true,
               cancelable: true,
@@ -412,11 +409,10 @@
             });
             sendButton.dispatchEvent(clickEvent);
             console.log('✅ 方法1備用: MouseEvent click 完成');
-          }, CONFIG.TIMEOUT.EVENT_DELAY);
-
-          return true;
-        } catch (error) {
-          console.warn('⚠️ 發送按鈕點擊失敗:', error);
+            return true;
+          } catch (backupError) {
+            console.warn('⚠️ 備用點擊方式也失敗:', backupError);
+          }
         }
       }
 
