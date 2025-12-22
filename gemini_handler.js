@@ -7,6 +7,10 @@
   console.log('🚀 Gemini Handler 統一版本載入...');
   console.log('📍 當前URL:', window.location.href);
 
+  // ==================== 防重複機制 ====================
+  let isProcessing = false;
+  let lastProcessedContent = '';
+
   // ==================== 配置常量 ====================
   const CONFIG = {
     // 域名檢查
@@ -392,78 +396,96 @@
         sendButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
         await sleep(200);
 
+        // 嘗試第一種點擊方法
         try {
           sendButton.focus();
           sendButton.click();
           console.log('✅ 方法1: 直接 click() 完成');
-          return true;
+
+          // 等待一下檢查是否真的發送了
+          await sleep(1000);
+
+          // 檢查輸入框是否清空了（表示發送成功）
+          const inputBox = findGeminiInputBox();
+          if (inputBox && (!inputBox.textContent || inputBox.textContent.trim().length === 0)) {
+            console.log('✅ 確認發送成功 - 輸入框已清空');
+            return true;
+          }
+
+          console.log('⚠️ 直接click可能未成功，嘗試備用方法');
         } catch (error) {
           console.warn('⚠️ 發送按鈕點擊失敗:', error);
+        }
 
-          // 備用點擊方式
-          try {
-            const clickEvent = new MouseEvent('click', {
-              bubbles: true,
-              cancelable: true,
-              view: window
-            });
-            sendButton.dispatchEvent(clickEvent);
-            console.log('✅ 方法1備用: MouseEvent click 完成');
+        // 備用點擊方式
+        try {
+          const clickEvent = new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            view: window
+          });
+          sendButton.dispatchEvent(clickEvent);
+          console.log('✅ 方法1備用: MouseEvent click 完成');
+
+          // 等待一下檢查是否真的發送了
+          await sleep(1000);
+
+          // 檢查輸入框是否清空了
+          const inputBox = findGeminiInputBox();
+          if (inputBox && (!inputBox.textContent || inputBox.textContent.trim().length === 0)) {
+            console.log('✅ 確認備用發送成功 - 輸入框已清空');
             return true;
-          } catch (backupError) {
-            console.warn('⚠️ 備用點擊方式也失敗:', backupError);
           }
+
+          console.log('⚠️ 備用點擊可能也未成功');
+        } catch (backupError) {
+          console.warn('⚠️ 備用點擊方式也失敗:', backupError);
         }
       }
 
-      // 方法 2: 鍵盤快捷鍵發送
+      // 方法 2: 鍵盤快捷鍵發送（只在按鈕方法失敗時嘗試）
       console.log('⏳ 嘗試鍵盤快捷鍵發送...');
       const inputBox = findGeminiInputBox();
       if (inputBox) {
         inputBox.focus();
         await sleep(CONFIG.TIMEOUT.EVENT_DELAY);
 
-        const keyboardMethods = [
-          { key: 'Enter', ctrlKey: true },
-          { key: 'Enter', metaKey: true },
-          { key: 'Enter', shiftKey: false }
-        ];
+        // 只嘗試最可靠的 Enter 鍵
+        try {
+          const keydownEvent = new KeyboardEvent('keydown', {
+            key: 'Enter',
+            code: 'Enter',
+            bubbles: true,
+            cancelable: true
+          });
 
-        for (const method of keyboardMethods) {
-          try {
-            const keydownEvent = new KeyboardEvent('keydown', {
-              key: method.key,
-              code: 'Enter',
-              ctrlKey: method.ctrlKey || false,
-              metaKey: method.metaKey || false,
-              shiftKey: method.shiftKey || false,
-              bubbles: true,
-              cancelable: true
-            });
+          const keyupEvent = new KeyboardEvent('keyup', {
+            key: 'Enter',
+            code: 'Enter',
+            bubbles: true,
+            cancelable: true
+          });
 
-            const keyupEvent = new KeyboardEvent('keyup', {
-              key: method.key,
-              code: 'Enter',
-              ctrlKey: method.ctrlKey || false,
-              metaKey: method.metaKey || false,
-              shiftKey: method.shiftKey || false,
-              bubbles: true,
-              cancelable: true
-            });
+          inputBox.dispatchEvent(keydownEvent);
+          await sleep(100);
+          inputBox.dispatchEvent(keyupEvent);
 
-            inputBox.dispatchEvent(keydownEvent);
-            inputBox.dispatchEvent(keyupEvent);
+          console.log('✅ 鍵盤 Enter 發送完成');
 
-            await sleep(300);
-          } catch (error) {
-            console.warn('⚠️ 鍵盤方法失敗:', error);
+          // 等待檢查發送結果
+          await sleep(1000);
+
+          // 檢查輸入框是否清空了
+          if (!inputBox.textContent || inputBox.textContent.trim().length === 0) {
+            console.log('✅ 確認鍵盤發送成功 - 輸入框已清空');
+            return true;
           }
+        } catch (error) {
+          console.warn('⚠️ 鍵盤方法失敗:', error);
         }
-
-        return true;
       }
 
-      console.log('❌ 所有自動發送方法都已嘗試');
+      console.log('❌ 所有自動發送方法都已嘗試，但可能未成功');
       return false;
 
     } catch (error) {
@@ -569,15 +591,42 @@
    * 執行自動動作
    */
   async function executeAutoAction(prompt, actionType) {
-    await waitForGeminiReady();
+    // 防重複檢查
+    if (isProcessing) {
+      console.log('⏸️ 正在處理中，跳過重複執行');
+      return;
+    }
 
-    const inputSuccess = await autoInputPrompt(prompt, actionType);
+    if (prompt === lastProcessedContent) {
+      console.log('⏸️ 內容已處理過，跳過重複執行');
+      return;
+    }
 
-    if (!inputSuccess) {
-      console.log('❌ 自動輸入失敗');
+    isProcessing = true;
+    lastProcessedContent = prompt;
+
+    try {
+      console.log(`🎯 開始執行自動動作: ${actionType}`);
+
+      await waitForGeminiReady();
+
+      const inputSuccess = await autoInputPrompt(prompt, actionType);
+
+      if (!inputSuccess) {
+        console.log('❌ 自動輸入失敗');
+        setTimeout(() => {
+          alert(`自動輸入失敗，請手動複製以下內容到 Gemini:\n\n${prompt}`);
+        }, 1000);
+      } else {
+        console.log('✅ 自動動作執行成功');
+      }
+    } catch (error) {
+      console.error('❌ 執行自動動作時發生錯誤:', error);
+    } finally {
+      // 重置處理狀態（延遲一下防止太快重複）
       setTimeout(() => {
-        alert(`自動輸入失敗，請手動複製以下內容到 Gemini:\n\n${prompt}`);
-      }, 1000);
+        isProcessing = false;
+      }, 3000);
     }
   }
 
@@ -594,6 +643,10 @@
       if (url !== lastUrl) {
         lastUrl = url;
         console.log('🔄 Gemini 頁面 URL 變化:', url);
+
+        // 重置防重複機制，因為是新頁面
+        isProcessing = false;
+        lastProcessedContent = '';
 
         setTimeout(() => {
           checkForAutoPrompt();

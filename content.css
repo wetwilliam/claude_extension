@@ -1,233 +1,326 @@
-.claude-summary-button {
+/* ==================== AI智能浮動DockControl ==================== */
+
+/* Dock容器 - 最小化與展開狀態 */
+.ai-dock-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  border: none;
-  border-radius: 50%;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px; /* 最小化狀態 */
+  height: auto;
+  background: linear-gradient(to bottom,
+    #6366f1 0%, /* 紫色 - Summary */
+    #10b981 25%, /* 綠色 - Translate */
+    #f59e0b 50%, /* 琥珀色 - OCR */
+    #3b82f6 75%, /* 藍色 - Search */
+    #ec4899 100%  /* 粉紅色 - AI Toggle */
+  );
+  border-radius: 4px 0 0 4px;
   cursor: pointer;
   z-index: 10000;
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  color: white;
-  user-select: none;
+  padding: 4px 0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  opacity: 0.9;
 }
 
-.claude-summary-button:hover {
-  transform: scale(1.5);
-  box-shadow: 0 6px 25px rgba(99, 102, 241, 0.4);
+/* 展開狀態 */
+.ai-dock-container:hover,
+.ai-dock-container.expanded {
+  width: 60px; /* 展開寬度 */
+  height: auto;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 12px 0 0 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  opacity: 1;
 }
 
-.claude-summary-button:active {
-  transform: scale(0.95);
+/* 拖拽狀態 */
+.ai-dock-container.dragging {
+  transform: translateY(-50%) scale(1.05);
+  opacity: 0.8;
 }
 
-.claude-summary-button.dragging {
-  transform: scale(1.05);
-  cursor: pointer;
-}
-
-.claude-summary-button.hidden {
+/* 隱藏狀態 */
+.ai-dock-container.hidden {
   opacity: 0;
   pointer-events: none;
-  visibility: hidden;
+  transform: translateY(-50%) translateX(100px);
 }
 
-.claude-summary-button::before {
-  content: "🧠";
-  font-size: 24px;
-  pointer-events: none;
-}
-
-.claude-summary-button:hover::before {
-  content: "🧠";
-}
-
-.claude-summary-button.hidden::before {
-  content: "🧠";
-}
-
-.claude-translate-button {
-  position: fixed;
-  top: 70px;
-  right: 20px;
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, #10b981, #059669);
-  border: none;
+/* 最小化狀態的彩色點指示器 */
+.ai-dock-container:not(:hover) .ai-dock-button {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  cursor: pointer;
-  z-index: 10000;
-  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+  margin: 2px 0;
   transition: all 0.3s ease;
+}
+
+/* 展開狀態的按鈕 */
+.ai-dock-container:hover .ai-dock-button {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  margin: 4px 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
-  color: white;
-  user-select: none;
-}
-
-.claude-translate-button:hover {
-  transform: scale(1.5);
-  box-shadow: 0 6px 25px rgba(16, 185, 129, 0.4);
-}
-
-.claude-translate-button:active {
-  transform: scale(0.95);
-}
-
-.claude-translate-button.dragging {
-  transform: scale(1.05);
   cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 }
 
-.claude-translate-button.hidden {
+/* 按鈕hover效果 */
+.ai-dock-container:hover .ai-dock-button:hover {
+  transform: translateX(-4px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 按鈕active效果 */
+.ai-dock-container:hover .ai-dock-button:active {
+  transform: translateX(-2px) scale(0.98);
+}
+
+/* AI引擎切換按鈕 */
+.ai-engine-toggle {
+  background: linear-gradient(135deg, #ec4899, #8b5cf6) !important; /* Claude: 粉紫漸變 */
+}
+
+.ai-engine-toggle[data-engine="gemini"] {
+  background: linear-gradient(135deg, #3b82f6, #06b6d4) !important; /* Gemini: 藍綠漸變 */
+}
+
+/* Summary按鈕 - 紫色 */
+.ai-summary-btn {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+}
+
+/* Translate按鈕 - 綠色 */
+.ai-translate-btn {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+}
+
+/* OCR按鈕 - 琥珀色 */
+.ai-ocr-btn {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+}
+
+/* Search按鈕 - 藍色 */
+.ai-search-btn {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+}
+
+/* 按鈕圖標 */
+.button-icon,
+.ai-engine-icon {
+  font-size: 20px;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+/* 按鈕標籤 */
+.button-label,
+.ai-engine-label {
+  font-size: 10px;
+  color: white;
+  font-weight: 500;
+  margin-top: 2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   opacity: 0;
-  pointer-events: none;
-  visibility: hidden;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-.claude-translate-button::before {
-  content: "🌐";
-  font-size: 24px;
-  pointer-events: none;
+/* 最小化狀態隱藏所有文字 */
+.ai-dock-container:not(:hover) .button-label,
+.ai-dock-container:not(:hover) .ai-engine-label,
+.ai-dock-container:not(:hover) .button-icon,
+.ai-dock-container:not(:hover) .ai-engine-icon {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
 }
 
-.claude-translate-button:hover::before {
-  content: "🌐";
+/* 展開狀態顯示文字 */
+.ai-dock-container:hover .button-label,
+.ai-dock-container:hover .ai-engine-label {
+  opacity: 1;
+  width: auto;
+  height: auto;
 }
 
-.claude-translate-button.hidden::before {
-  content: "🌐";
+.ai-dock-container:hover .button-icon,
+.ai-dock-container:hover .ai-engine-icon {
+  opacity: 1;
+  width: auto;
+  height: auto;
 }
 
-.claude-ocr-button {
-  position: fixed;
-  top: 120px;
-  right: 20px;
+/* 分隔線 */
+.ai-dock-separator {
   width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  z-index: 10000;
-  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  color: white;
-  user-select: none;
-}
-
-.claude-ocr-button:hover {
-  transform: scale(1.5);
-  box-shadow: 0 6px 25px rgba(245, 158, 11, 0.4);
-}
-
-.claude-ocr-button:active {
-  transform: scale(0.95);
-}
-
-.claude-ocr-button.dragging {
-  transform: scale(1.05);
-  cursor: pointer;
-}
-
-.claude-ocr-button.hidden {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.1);
+  margin: 6px 0;
   opacity: 0;
-  pointer-events: none;
-  visibility: hidden;
+  transition: opacity 0.3s ease;
 }
 
-.claude-ocr-button.capturing {
-  animation: pulse 1s infinite;
+.ai-dock-container:hover .ai-dock-separator {
+  opacity: 1;
+}
+
+/* 拖拽把手 */
+.ai-dock-handle {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.ai-dock-container:hover .ai-dock-handle {
+  opacity: 0.6;
+}
+
+.ai-dock-handle:hover {
+  opacity: 1 !important;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.ai-dock-handle:active {
+  cursor: grabbing;
+  transform: translateX(-50%) scale(1.1);
+}
+
+/* OCR截圖狀態 */
+.ai-dock-container .ai-ocr-btn.capturing {
+  animation: pulse 2s infinite;
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
 }
 
-.claude-ocr-button::before {
-  content: "📷";
-  font-size: 24px;
-  pointer-events: none;
+/* 通知動畫 */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
-.claude-ocr-button:hover::before {
-  content: "📷";
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
-.claude-ocr-button.hidden::before {
-  content: "📷";
-}
-
-.claude-ocr-button.capturing::before {
-  content: "⏳";
-}
-
-.claude-search-button {
+/* AI切換通知 */
+.ai-dock-notification {
   position: fixed;
-  top: 170px;
-  right: 20px;
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  z-index: 10000;
-  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
+  top: 20px;
+  right: 80px;
+  background: rgba(0, 0, 0, 0.85);
   color: white;
-  user-select: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  z-index: 10001;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: slideInRight 0.3s ease, fadeOut 0.3s ease 2.7s;
 }
 
-.claude-search-button:hover {
-  transform: scale(1.5);
-  box-shadow: 0 6px 25px rgba(59, 130, 246, 0.4);
+/* 深色模式適配 */
+@media (prefers-color-scheme: dark) {
+  .ai-dock-container:hover,
+  .ai-dock-container.expanded {
+    background: rgba(30, 30, 30, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .ai-dock-separator {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .ai-dock-handle {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .ai-dock-handle:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
 }
 
-.claude-search-button:active {
-  transform: scale(0.95);
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .ai-dock-container:hover,
+  .ai-dock-container.expanded {
+    width: 50px;
+  }
+
+  .ai-dock-container:hover .ai-dock-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .button-icon,
+  .ai-engine-icon {
+    font-size: 16px;
+  }
+
+  .button-label,
+  .ai-engine-label {
+    font-size: 8px;
+  }
+
+  .ai-dock-notification {
+    right: 60px;
+    font-size: 12px;
+    padding: 8px 12px;
+  }
 }
 
-.claude-search-button.dragging {
-  transform: scale(1.05);
-  cursor: pointer;
-}
+/* 高DPI顯示器適配 */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .ai-dock-container {
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.08);
+  }
 
-.claude-search-button.hidden {
-  opacity: 0;
-  pointer-events: none;
-  visibility: hidden;
-}
-
-.claude-search-button::before {
-  content: "🔍";
-  font-size: 24px;
-  pointer-events: none;
-}
-
-.claude-search-button:hover::before {
-  content: "🔍";
-}
-
-.claude-search-button.hidden::before {
-  content: "🔍";
+  .ai-dock-container:hover,
+  .ai-dock-container.expanded {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
 }

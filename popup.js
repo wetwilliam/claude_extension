@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // 初始化懸浮視窗顯示狀態
   updateToggleButtonText();
   
-  // 顯示/隱藏懸浮視窗按鈕事件
+  // 顯示/隱藏智能DockControl
   toggleFloatingBtn.addEventListener('click', function() {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
       chrome.tabs.sendMessage(tabs[0].id, {
@@ -204,9 +204,9 @@ document.addEventListener('DOMContentLoaded', function() {
         action: 'getFloatingButtonsState'
       }, function(response) {
         if (response && response.hidden) {
-          toggleFloatingText.textContent = '顯示 懸浮視窗';
+          toggleFloatingText.textContent = '顯示 智能Dock';
         } else {
-          toggleFloatingText.textContent = '隱藏 懸浮視窗';
+          toggleFloatingText.textContent = '隱藏 智能Dock';
         }
       });
     });
