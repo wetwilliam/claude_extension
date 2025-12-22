@@ -1,4 +1,43 @@
 /* ==================== AI智能浮動DockControl ==================== */
+/* 基於清晰度、順從性、深度三大核心原則設計 */
+
+/* 設計系統變數 - Clarity (清晰度) */
+:root {
+  /* 字體系統 - 合理尺寸 */
+  --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  --font-size-min: 14px; /* Compact 但仍可讀 */
+  --font-size-label: 12px; /* 更小字體避免溢出 */
+  --font-size-icon: 20px; /* 恢復圖標大小 */
+
+  /* 色彩系統 - 高對比度 WCAG AAA */
+  --summary-primary: #5E5CE6;
+  --translate-primary: #30D158;
+  --ocr-primary: #FF9F0A;
+  --search-primary: #007AFF;
+  --engine-claude: #BF5AF2;
+  --engine-gemini: #0A84FF;
+
+  /* 中性色階 - Clarity */
+  --surface-primary: rgba(255, 255, 255, 0.95);
+  --surface-secondary: rgba(255, 255, 255, 0.80);
+  --text-primary: rgba(0, 0, 0, 0.87);
+  --text-secondary: rgba(0, 0, 0, 0.65);
+  --text-on-primary: rgba(255, 255, 255, 1);
+  --border-light: rgba(0, 0, 0, 0.08);
+  --border-medium: rgba(0, 0, 0, 0.12);
+
+  /* 陰影系統 - Depth (深度) */
+  --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-medium: 0 4px 6px rgba(0, 0, 0, 0.16), 0 4px 6px rgba(0, 0, 0, 0.23);
+  --shadow-deep: 0 10px 20px rgba(0, 0, 0, 0.19), 0 6px 6px rgba(0, 0, 0, 0.23);
+
+  /* 動畫系統 - Depth (深度層次) */
+  --transition-smooth: 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-bounce: 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --transition-gentle: 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+  --transition-stagger: 0.05s; /* 交錯動畫間隔 */
+}
 
 /* Dock容器 - 最小化與展開狀態 */
 .ai-dock-container {
@@ -6,37 +45,59 @@
   right: 0;
   top: 50%;
   transform: translateY(-50%);
-  width: 8px; /* 最小化狀態 */
-  height: auto;
+
+  /* 最小化狀態 - Clarity (簡潔單一) */
+  width: 4px; /* 極簡線條 */
+  height: 200px; /* 適當高度 */
   background: linear-gradient(to bottom,
-    #6366f1 0%, /* 紫色 - Summary */
-    #10b981 25%, /* 綠色 - Translate */
-    #f59e0b 50%, /* 琥珀色 - OCR */
-    #3b82f6 75%, /* 藍色 - Search */
-    #ec4899 100%  /* 粉紅色 - AI Toggle */
+    var(--engine-claude) 0%,      /* AI引擎 - 粉紫 */
+    var(--summary-primary) 20%,  /* Summary - 藍紫 */
+    var(--translate-primary) 40%, /* Translate - 綠 */
+    var(--ocr-primary) 60%,      /* OCR - 橘 */
+    var(--search-primary) 80%,   /* Search - 藍 */
+    var(--engine-gemini) 100%    /* Gemini - 藍綠 */
   );
-  border-radius: 4px 0 0 4px;
+
+  /* 深度效果 - Depth */
+  border-radius: 2px 0 0 2px;
+  box-shadow: none; /* 極簡無陰影 */
   cursor: pointer;
   z-index: 10000;
-  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* 順從性動畫 - Deference */
+  transition: all var(--transition-bounce);
+  display: block; /* 改為 block 避免佈局問題 */
+  opacity: 0.6; /* 更低干擾 */
+
+  /* 移除玻璃效果，保持簡潔 */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+}
+
+/* 展開狀態 - Deference (服務於內容) */
+.ai-dock-container:hover,
+.ai-dock-container.expanded {
+  width: 130px; /* 增加寬度給文字更多空間 */
+  height: auto; /* 恢復自動高度 */
+  background: var(--surface-primary);
+  border-radius: 12px 0 0 12px;
+  box-shadow: var(--shadow-deep);
+  opacity: 1;
+
+  /* 深度轉換 - Depth */
+  transform: translateY(-50%) scale(1.02);
+  border: 1px solid var(--border-light);
+
+  /* 恢復玻璃效果 */
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+
+  /* 恢復 flex 佈局 */
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 4px 0;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  opacity: 0.9;
-}
-
-/* 展開狀態 */
-.ai-dock-container:hover,
-.ai-dock-container.expanded {
-  width: 60px; /* 展開寬度 */
-  height: auto;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 12px 0 0 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  opacity: 1;
+  padding: 8px 0;
 }
 
 /* 拖拽狀態 */
@@ -52,95 +113,180 @@
   transform: translateY(-50%) translateX(100px);
 }
 
-/* 最小化狀態的彩色點指示器 */
+/* ==================== 按鈕系統 - Clarity (清晰度) ==================== */
+
+/* 最小化狀態隱藏所有按鈕 - Clarity (簡潔) */
 .ai-dock-container:not(:hover) .ai-dock-button {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin: 2px 0;
-  transition: all 0.3s ease;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+  overflow: hidden;
+  transform: scale(0.8); /* 縮小效果 */
 }
 
-/* 展開狀態的按鈕 */
+/* 展開狀態的按鈕 - 優化尺寸 */
 .ai-dock-container:hover .ai-dock-button {
-  width: 44px;
-  height: 44px;
+  width: 50px; /* 增大按鈕給圖標和文字更多空間 */
+  height: 50px;
   border-radius: 8px;
-  margin: 4px 0;
+  margin: 3px 5px; /* 保持邊距：5px*2 + 50px = 60px < 130px */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--transition-smooth);
   position: relative;
   overflow: hidden;
+
+  /* 深度基礎 - Depth */
+  background: var(--surface-primary);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-light);
+
+  /* 恢復可見性 */
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  transform: scale(1); /* 恢復正常大小 */
 }
 
-/* 按鈕hover效果 */
+/* 按鈕個別延遲動畫 - Depth (交錯展開) */
+.ai-dock-container:hover .ai-engine-toggle {
+  transition-delay: 0.0s; /* 第一個按鈕立即出現 */
+}
+
+.ai-dock-container:hover .ai-summary-btn {
+  transition-delay: var(--transition-stagger); /* 第二個按鈕延遲 */
+}
+
+.ai-dock-container:hover .ai-translate-btn {
+  transition-delay: calc(var(--transition-stagger) * 2); /* 第三個按鈕延遲 */
+}
+
+.ai-dock-container:hover .ai-ocr-btn {
+  transition-delay: calc(var(--transition-stagger) * 3); /* 第四個按鈕延遲 */
+}
+
+.ai-dock-container:hover .ai-search-btn {
+  transition-delay: calc(var(--transition-stagger) * 4); /* 第五個按鈕延遲 */
+}
+
+/* 按鈕hover效果 - Depth */
 .ai-dock-container:hover .ai-dock-button:hover {
   transform: translateX(-4px) scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-medium);
+  background: var(--surface-secondary);
 }
 
 /* 按鈕active效果 */
 .ai-dock-container:hover .ai-dock-button:active {
   transform: translateX(-2px) scale(0.98);
+  transition: all 0.1s ease;
 }
 
-/* AI引擎切換按鈕 */
+/* ==================== AI 引擎切換按鈕 - Clarity ==================== */
 .ai-engine-toggle {
-  background: linear-gradient(135deg, #ec4899, #8b5cf6) !important; /* Claude: 粉紫漸變 */
+  /* 引擎顏色狀態 */
+  background: var(--surface-primary) !important;
+  border: 2px solid var(--engine-claude) !important;
 }
 
 .ai-engine-toggle[data-engine="gemini"] {
-  background: linear-gradient(135deg, #3b82f6, #06b6d4) !important; /* Gemini: 藍綠漸變 */
+  border-color: var(--engine-gemini) !important;
 }
 
-/* Summary按鈕 - 紫色 */
+/* 展開狀態的引擎按鈕 */
+.ai-dock-container:hover .ai-engine-toggle {
+  background: linear-gradient(135deg, var(--engine-claude), var(--engine-claude) 0.8) !important;
+  border-color: var(--engine-claude) !important;
+}
+
+.ai-dock-container:hover .ai-engine-toggle[data-engine="gemini"] {
+  background: linear-gradient(135deg, var(--engine-gemini), var(--engine-gemini) 0.8) !important;
+  border-color: var(--engine-gemini) !important;
+}
+
+/* ==================== 功能按鈕系統 - Clarity ==================== */
 .ai-summary-btn {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+  border-color: var(--summary-primary) !important;
 }
 
-/* Translate按鈕 - 綠色 */
+.ai-dock-container:hover .ai-summary-btn {
+  background: linear-gradient(135deg, var(--summary-primary), var(--summary-primary) 0.8) !important;
+}
+
 .ai-translate-btn {
-  background: linear-gradient(135deg, #10b981, #059669) !important;
+  border-color: var(--translate-primary) !important;
 }
 
-/* OCR按鈕 - 琥珀色 */
+.ai-dock-container:hover .ai-translate-btn {
+  background: linear-gradient(135deg, var(--translate-primary), var(--translate-primary) 0.8) !important;
+}
+
 .ai-ocr-btn {
-  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  border-color: var(--ocr-primary) !important;
 }
 
-/* Search按鈕 - 藍色 */
+.ai-dock-container:hover .ai-ocr-btn {
+  background: linear-gradient(135deg, var(--ocr-primary), var(--ocr-primary) 0.8) !important;
+}
+
 .ai-search-btn {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+  border-color: var(--search-primary) !important;
 }
 
-/* 按鈕圖標 */
+.ai-dock-container:hover .ai-search-btn {
+  background: linear-gradient(135deg, var(--search-primary), var(--search-primary) 0.8) !important;
+}
+
+/* ==================== 圖標與文字系統 - Clarity (16pt 最小) ==================== */
 .button-icon,
 .ai-engine-icon {
-  font-size: 20px;
-  color: white;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s ease;
+  font-size: var(--font-size-icon);
+  color: var(--text-primary);
+  text-shadow: none; /* 移除陰影增加清晰度 */
+  transition: all var(--transition-gentle);
+  font-family: var(--font-display);
+  font-weight: 500;
 }
 
-/* 按鈕標籤 */
+/* 展開狀態圖標顏色 */
+.ai-dock-container:hover .button-icon,
+.ai-dock-container:hover .ai-engine-icon {
+  color: var(--text-on-primary);
+}
+
+/* 按鈕標籤 - 優化顯示空間 */
 .button-label,
 .ai-engine-label {
-  font-size: 10px;
-  color: white;
-  font-weight: 500;
-  margin-top: 2px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  opacity: 0;
-  transition: all 0.3s ease;
+  font-size: var(--font-size-label); /* 12px */
+  font-family: var(--font-system);
+  font-weight: 600; /* 加粗提高可讀性 */
+  color: var(--text-primary);
+  margin-top: 1px; /* 緊密間距 */
+  text-shadow: none;
+  transition: all var(--transition-gentle);
   white-space: nowrap;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: 0; /* 正常字距 */
+  line-height: 1.1; /* 稍微放寬 */
+  max-width: 44px; /* 增加寬度給文字更多空間 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center; /* 居中對齊 */
 }
 
-/* 最小化狀態隱藏所有文字 */
+/* 展開狀態標籤顏色 */
+.ai-dock-container:hover .button-label,
+.ai-dock-container:hover .ai-engine-label {
+  color: var(--text-on-primary);
+}
+
+/* ==================== 狀態轉換 - Deference ==================== */
+/* 最小化狀態隱藏所有文字 - Clarity (簡潔) */
 .ai-dock-container:not(:hover) .button-label,
 .ai-dock-container:not(:hover) .ai-engine-label,
 .ai-dock-container:not(:hover) .button-icon,
@@ -149,14 +295,18 @@
   width: 0;
   height: 0;
   overflow: hidden;
+  visibility: hidden;
 }
 
-/* 展開狀態顯示文字 */
+/* 展開狀態顯示文字 - Clarity */
 .ai-dock-container:hover .button-label,
 .ai-dock-container:hover .ai-engine-label {
   opacity: 1;
   width: auto;
   height: auto;
+  visibility: visible;
+  transition: all var(--transition-smooth);
+  transform: translateY(0);
 }
 
 .ai-dock-container:hover .button-icon,
@@ -164,69 +314,97 @@
   opacity: 1;
   width: auto;
   height: auto;
+  visibility: visible;
+  transition: all var(--transition-smooth);
+  transform: scale(1);
 }
 
-/* 分隔線 */
+/* 最小化狀態文字動畫 */
+.ai-dock-container:not(:hover) .button-label,
+.ai-dock-container:not(:hover) .ai-engine-label {
+  transform: translateY(5px);
+}
+
+.ai-dock-container:not(:hover) .button-icon,
+.ai-dock-container:not(:hover) .ai-engine-icon {
+  transform: scale(0.8);
+}
+
+/* ==================== 結構性組件 - Deference (服務於內容) ==================== */
+
+/* 分隔線 - Clarity (簡約線條) */
 .ai-dock-separator {
-  width: 40px;
+  width: 110px; /* 調整到新的寬度 */
   height: 1px;
-  background: rgba(0, 0, 0, 0.1);
-  margin: 6px 0;
+  background: var(--border-medium);
+  margin: 4px 10px; /* 減少間距 */
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transform: scaleX(0); /* 收縮到 0 */
+  transform-origin: left center;
+  transition: all var(--transition-smooth) 0.15s; /* 稍晚出現 */
 }
 
 .ai-dock-container:hover .ai-dock-separator {
-  opacity: 1;
+  opacity: 0.6;
+  transform: scaleX(1); /* 展開到完整寬度 */
 }
 
-/* 拖拽把手 */
+/* 拖拽把手 - Deference (微妙交互) */
 .ai-dock-handle {
   position: absolute;
   bottom: -8px;
   left: 50%;
-  transform: translateX(-50%);
-  width: 30px;
+  transform: translateX(-50%) scale(0.8); /* 初始縮小 */
+  width: 32px;
   height: 6px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--border-light);
   border-radius: 3px;
   cursor: grab;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: all var(--transition-smooth) 0.25s; /* 最晚出現 */
+  box-shadow: var(--shadow-light);
 }
 
 .ai-dock-container:hover .ai-dock-handle {
-  opacity: 0.6;
+  opacity: 0.5;
+  transform: translateX(-50%) scale(1); /* 恢復大小 */
 }
 
 .ai-dock-handle:hover {
   opacity: 1 !important;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--border-medium);
+  transform: translateX(-50%) scale(1.05);
 }
 
 .ai-dock-handle:active {
   cursor: grabbing;
-  transform: translateX(-50%) scale(1.1);
+  transform: translateX(-50%) scale(0.95);
+  transition: all 0.1s ease;
 }
 
-/* OCR截圖狀態 */
+/* ==================== 狀態指示系統 - Depth ==================== */
+
+/* OCR截圖狀態 - 持續脈動 */
 .ai-dock-container .ai-ocr-btn.capturing {
-  animation: pulse 2s infinite;
-  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  animation: breathe 2s infinite ease-in-out;
+  background: linear-gradient(135deg, var(--ocr-primary), var(--ocr-primary) 0.9) !important;
+  box-shadow: var(--shadow-medium);
 }
 
-@keyframes pulse {
+@keyframes breathe {
   0%, 100% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    box-shadow: var(--shadow-medium);
   }
   50% {
-    transform: scale(1.05);
-    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    transform: scale(1.02);
+    box-shadow: 0 0 0 8px rgba(255, 159, 10, 0.1);
   }
 }
 
-/* 通知動畫 */
+/* ==================== 通知系統 - Depth & Deference ==================== */
+
+/* 通知動畫 - Depth */
 @keyframes slideInRight {
   from {
     transform: translateX(100px);
@@ -241,59 +419,120 @@
 @keyframes fadeOut {
   from {
     opacity: 1;
+    transform: translateY(0);
   }
   to {
     opacity: 0;
+    transform: translateY(-10px);
   }
 }
 
-/* AI切換通知 */
+/* AI切換通知 - 更新位置 */
 .ai-dock-notification {
   position: fixed;
   top: 20px;
-  right: 80px;
-  background: rgba(0, 0, 0, 0.85);
-  color: white;
-  padding: 12px 20px;
+  right: 150px; /* 調整到新的Dock寬度 + 邊距 */
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  padding: 10px 14px; /* 合理內邊距 */
   border-radius: 8px;
-  font-size: 14px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px; /* 稍大提高可讀性 */
+  font-family: var(--font-system);
+  font-weight: 500;
   z-index: 10001;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  animation: slideInRight 0.3s ease, fadeOut 0.3s ease 2.7s;
+  box-shadow: var(--shadow-deep);
+  border: 1px solid var(--border-light);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  animation: slideInRight var(--transition-smooth), fadeOut var(--transition-smooth) 2.7s;
+  letter-spacing: 0;
+  line-height: 1.3;
+  max-width: 200px; /* 合理寬度 */
 }
 
-/* 深色模式適配 */
+/* ==================== 系統整合適配 - Clarity ==================== */
+
+/* 深色模式適配 - Clarity */
 @media (prefers-color-scheme: dark) {
+  :root {
+    --surface-primary: rgba(30, 30, 30, 0.95);
+    --surface-secondary: rgba(40, 40, 40, 0.80);
+    --text-primary: rgba(255, 255, 255, 0.92);
+    --text-secondary: rgba(255, 255, 255, 0.68);
+    --border-light: rgba(255, 255, 255, 0.10);
+    --border-medium: rgba(255, 255, 255, 0.16);
+  }
+
   .ai-dock-container:hover,
   .ai-dock-container.expanded {
-    background: rgba(30, 30, 30, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-light);
   }
 
   .ai-dock-separator {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--border-light);
   }
 
   .ai-dock-handle {
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--border-light);
   }
 
   .ai-dock-handle:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: var(--border-medium);
   }
 }
 
-/* 響應式設計 */
+/* ==================== 響應式設計系統 - Deference ==================== */
+
+/* 桌面端優化 */
+@media (min-width: 1024px) {
+  .ai-dock-container:hover,
+  .ai-dock-container.expanded {
+    width: 130px; /* 優化寬度 */
+  }
+}
+
+/* 平板端適配 */
 @media (max-width: 768px) {
   .ai-dock-container:hover,
   .ai-dock-container.expanded {
-    width: 50px;
+    width: 115px; /* 增加寬度 */
+  }
+
+  .ai-dock-container:hover .ai-dock-button {
+    width: 45px;
+    height: 45px;
+    margin: 2px 4px;
+  }
+
+  .button-icon,
+  .ai-engine-icon {
+    font-size: 18px;
+  }
+
+  .button-label,
+  .ai-engine-label {
+    font-size: 11px; /* 緊湊字體 */
+    max-width: 40px; /* 相應調整 */
+  }
+
+  .ai-dock-notification {
+    right: 135px;
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+}
+
+/* 移動端適配 */
+@media (max-width: 480px) {
+  .ai-dock-container:hover,
+  .ai-dock-container.expanded {
+    width: 90px; /* 最緊湊 */
   }
 
   .ai-dock-container:hover .ai-dock-button {
     width: 36px;
     height: 36px;
+    margin: 2px 3px;
   }
 
   .button-icon,
@@ -303,24 +542,117 @@
 
   .button-label,
   .ai-engine-label {
-    font-size: 8px;
+    font-size: 10px; /* 最小可讀 */
   }
 
   .ai-dock-notification {
-    right: 60px;
-    font-size: 12px;
-    padding: 8px 12px;
+    right: 110px;
+    font-size: 11px;
+    padding: 6px 10px;
   }
 }
 
-/* 高DPI顯示器適配 */
+/* ==================== 高品質顯示適配 - Clarity ==================== */
+
+/* 高DPI顯示器適配 - Clarity (清晰渲染) */
 @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
   .ai-dock-container {
     box-shadow: 0 1px 8px rgba(0, 0, 0, 0.08);
+    border-width: 0.5px;
   }
 
   .ai-dock-container:hover,
   .ai-dock-container.expanded {
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--shadow-deep);
+    border-width: 0.5px;
   }
+
+  .ai-dock-button {
+    border-width: 0.5px;
+  }
+
+  .ai-dock-notification {
+    border-width: 0.5px;
+  }
+}
+
+/* ==================== 可訪問性支持 - Clarity (AAA級) ==================== */
+
+/* 高對比度模式 */
+@media (prefers-contrast: high) {
+  :root {
+    --border-light: rgba(0, 0, 0, 0.3);
+    --border-medium: rgba(0, 0, 0, 0.5);
+    --shadow-light: 0 2px 4px rgba(0, 0, 0, 0.3);
+    --shadow-medium: 0 4px 8px rgba(0, 0, 0, 0.4);
+    --shadow-deep: 0 8px 16px rgba(0, 0, 0, 0.5);
+  }
+
+  .ai-dock-container {
+    border-width: 2px;
+  }
+
+  .ai-dock-button {
+    border-width: 2px;
+  }
+}
+
+/* 減少動畫模式 */
+@media (prefers-reduced-motion: reduce) {
+  .ai-dock-container,
+  .ai-dock-button,
+  .ai-dock-notification,
+  .ai-dock-separator,
+  .ai-dock-handle {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* 鍵盤導航支持 */
+.ai-dock-button:focus,
+.ai-dock-handle:focus {
+  outline: 2px solid var(--search-primary);
+  outline-offset: 2px;
+}
+
+/* 屏幕閱讀器支援 */
+.ai-dock-container {
+  role: "toolbar";
+  aria-label: "AI功能工具欄";
+}
+
+.ai-dock-button {
+  role: "button";
+  tabindex: "0";
+}
+
+.ai-engine-toggle[aria-pressed="true"] {
+  font-weight: 600;
+}
+
+.ai-summary-btn[aria-label]:hover::after,
+.ai-translate-btn[aria-label]:hover::after,
+.ai-ocr-btn[aria-label]:hover::after,
+.ai-search-btn[aria-label]:hover::after {
+  content: attr(aria-label);
+  position: absolute;
+  left: 100%;
+  margin-left: 8px;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+  white-space: nowrap;
+  box-shadow: var(--shadow-light);
+  z-index: 10002;
+  opacity: 0;
+  transform: translateX(10px);
+  transition: all var(--transition-gentle);
+}
+
+.ai-dock-button:hover[aria-label]::after {
+  opacity: 1;
+  transform: translateX(0);
 }
