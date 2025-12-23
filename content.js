@@ -798,7 +798,7 @@ function showTemporaryNotification(message) {
 }
 
 // 生成AI URL並處理不同引擎
-async function generateAIUrl(actionType, prompt, currentUrl = '') {
+async function generateAIUrl(actionType, prompt, currentUrl = '', imageData = null) {
   const engine = getCurrentAIEngine();
   const engineConfig = AI_ENGINES[engine];
   
@@ -827,9 +827,14 @@ async function generateAIUrl(actionType, prompt, currentUrl = '') {
     }
 
     try {
-      // 複製到剪貼簿作為備用
-      await navigator.clipboard.writeText(fullPrompt);
-      console.log('📋 Prompt已複製到剪貼簿:', fullPrompt.substring(0, 50) + '...');
+      // ✅ FIX: OCR 時不要覆蓋剪貼簿中的圖片
+      if (actionType !== 'ocr') {
+        // 複製到剪貼簿作為備用（非 OCR 動作）
+        await navigator.clipboard.writeText(fullPrompt);
+        console.log('📋 Prompt已複製到剪貼簿:', fullPrompt.substring(0, 50) + '...');
+      } else {
+        console.log('📸 OCR 模式：保留剪貼簿中的圖片，不覆蓋為文字');
+      }
 
       // ✅ FIX: 通過 background script 發送消息到 Gemini
       console.log('📤 發送消息到 background script...');
@@ -837,7 +842,9 @@ async function generateAIUrl(actionType, prompt, currentUrl = '') {
       chrome.runtime.sendMessage({
         action: 'openGeminiWithPrompt',
         url: engineConfig.baseUrl,
-        prompt: fullPrompt
+        prompt: fullPrompt,
+        actionType: actionType,
+        imageData: imageData  // ✅ FIX: 傳遞圖片數據
       }, (response) => {
         if (chrome.runtime.lastError) {
           console.error('❌ 發送失敗:', chrome.runtime.lastError);
@@ -1042,22 +1049,22 @@ async function handleOCRCapture() {
   }
 
   try {
-    // 使用Chrome API截圖
-    const success = await captureTabScreenshot();
+    // 使用Chrome API截圖並獲取圖片數據
+    const screenshotData = await captureTabScreenshot();
 
-    if (success) {
+    if (screenshotData) {
       console.log('截圖成功，準備開啟AI');
 
       // 設置本地標記
       localStorage.setItem('claude-ocr-task', 'true');
       console.log('本地OCR任務標記已設置');
 
-      // 獲取AI URL
-      const aiUrl = await generateAIUrl('ocr', '');
+      // 獲取AI URL並傳遞圖片數據
+      const aiUrl = await generateAIUrl('ocr', '', '', screenshotData);
 
       // 對於Gemini，OCR提示會自動輸入，無需額外提示
       if (getCurrentAIEngine() === 'gemini') {
-        console.log('Gemini OCR: 圖片已複製，提示將自動輸入');
+        console.log('Gemini OCR: 圖片數據已傳遞，提示將自動輸入');
       }
 
       // ✅ FIX: 如果是 Gemini，background script 會處理打開標籤頁
@@ -1090,7 +1097,7 @@ async function handleOCRCapture() {
   }
 }
 
-// 截圖函數
+// 截圖函數 - 返回圖片dataUrl
 async function captureTabScreenshot() {
   return new Promise((resolve) => {
     // 發送消息給background script要求截圖
@@ -1099,14 +1106,19 @@ async function captureTabScreenshot() {
         try {
           // 將base64圖片複製到剪貼簿
           const success = await copyImageToClipboard(response.dataUrl);
-          resolve(success);
+          if (success) {
+            // ✅ FIX: 返回 dataUrl 而不只是 true/false
+            resolve(response.dataUrl);
+          } else {
+            resolve(null);
+          }
         } catch (error) {
           console.error('複製圖片失敗:', error);
-          resolve(false);
+          resolve(null);
         }
       } else {
         console.error('截圖失敗:', response?.error);
-        resolve(false);
+        resolve(null);
       }
     });
   });
@@ -1124,10 +1136,21 @@ async function copyImageToClipboard(dataUrl) {
       })
     ]);
 
-    console.log('截圖已複製到剪貼簿');
+    console.log('✅ 截圖已複製到剪貼簿');
+    console.log('📊 圖片大小:', Math.round(blob.size / 1024), 'KB');
+
+    // ✅ FIX: 驗證剪貼簿確實有圖片
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      console.log('🔍 剪貼簿驗證:', clipboardItems.length, '個項目');
+      console.log('🔍 項目類型:', clipboardItems[0]?.types);
+    } catch (e) {
+      console.warn('⚠️ 無法驗證剪貼簿（權限限制）');
+    }
+
     return true;
   } catch (error) {
-    console.error('複製圖片到剪貼簿失敗:', error);
+    console.error('❌ 複製圖片到剪貼簿失敗:', error);
     return false;
   }
 }

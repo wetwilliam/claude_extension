@@ -329,7 +329,7 @@
   /**
    * 自動輸入 prompt
    */
-  async function autoInputPrompt(promptText, actionType = 'default') {
+  async function autoInputPrompt(promptText, actionType = 'default', imageData = null) {
     try {
       const inputBox = findGeminiInputBox();
 
@@ -401,8 +401,25 @@
       // OCR 動作需要用戶先上傳圖片，不自動發送
       if (actionType === 'ocr') {
         console.log('📸 OCR 動作，不自動發送');
+
+        // ✅ FIX: 如果有圖片數據，在 Gemini 視窗中重新複製到剪貼簿
+        if (imageData) {
+          console.log('📸 在 Gemini 視窗中重新複製圖片到剪貼簿...');
+          try {
+            const response = await fetch(imageData);
+            const blob = await response.blob();
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ]);
+            console.log('✅ 圖片已在 Gemini 視窗剪貼簿中準備就緒');
+            console.log('📊 圖片大小:', Math.round(blob.size / 1024), 'KB');
+          } catch (error) {
+            console.error('❌ 複製圖片到 Gemini 剪貼簿失敗:', error);
+          }
+        }
+
         setTimeout(() => {
-          alert('OCR 提示已自動輸入！\n請上傳要識別的圖片，然後手動發送。');
+          alert('✅ OCR 提示已自動輸入！\n\n📸 圖片已準備就緒\n💡 請按 Ctrl+V 貼上圖片，然後手動發送');
         }, 500);
         return true;
       }
@@ -757,7 +774,15 @@
         // ✅ FIX #2: 授予明確授權（因為這是用戶主動點擊擴展按鈕）
         userConsentGiven = true;
 
-        autoInputPrompt(request.prompt).then(success => {
+        // ✅ FIX: 傳遞 actionType 和 imageData 參數
+        const actionType = request.actionType || 'default';
+        const imageData = request.imageData || null;
+
+        if (imageData) {
+          console.log('📸 收到圖片數據，大小:', imageData.length, '字元');
+        }
+
+        autoInputPrompt(request.prompt, actionType, imageData).then(success => {
           sendResponse({ success: success });
 
           // 執行完成後重置授權（單次授權模式）

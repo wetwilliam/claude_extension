@@ -70,7 +70,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 // Send message to Gemini tab
                 chrome.tabs.sendMessage(tabId, {
                   action: 'autoInputPrompt',
-                  prompt: request.prompt
+                  prompt: request.prompt,
+                  actionType: request.actionType || 'default',
+                  imageData: request.imageData  // ✅ FIX: 傳遞圖片數據到 Gemini
                 }, (response) => {
                   if (chrome.runtime.lastError) {
                     console.error('❌ Failed to send message:', chrome.runtime.lastError);
