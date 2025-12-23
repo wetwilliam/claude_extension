@@ -525,7 +525,16 @@ function attachDockEventListeners(dock) {
       const testBtn = document.getElementById('ai-engine-toggle');
       if (testBtn) {
         console.log('🧪 延遲檢查 - 按鈕仍存在:', testBtn.id);
-        console.log('🧪 事件監聽器數量:', getEventListeners ? getEventListeners(testBtn).click?.length : '無法檢查');
+        // getEventListeners 僅在 DevTools Console 中可用，不在注入腳本中
+        try {
+          if (typeof getEventListeners !== 'undefined') {
+            console.log('🧪 事件監聽器數量:', getEventListeners(testBtn).click?.length);
+          } else {
+            console.log('🧪 事件監聽器檢查：僅在 DevTools Console 中可用');
+          }
+        } catch (e) {
+          console.log('🧪 事件監聽器檢查：不可用（這是正常的）');
+        }
       }
     }, 100);
 
@@ -806,44 +815,54 @@ async function generateAIUrl(actionType, prompt, currentUrl = '') {
       return `${engineConfig.baseUrl}?q=${encodeURIComponent(fullPrompt)}`;
     }
   } else {
-    // Google Gemini - 使用localStorage儲存prompt，然後開啟網站
+    // Google Gemini - ✅ FIX: 使用 Chrome 消息傳遞而非 localStorage
     let fullPrompt = prompt;
     let shouldAlert = true;
-    
+
     if (actionType === 'ocr') {
       fullPrompt = '請幫我識別這張圖片中的文字內容，並將其轉換為可編輯的文本格式。請保持原有的排版結構。';
       shouldAlert = false; // OCR的alert在別處處理
     } else if (currentUrl && actionType !== 'search') {
       fullPrompt += `\n\n網頁連結：${currentUrl}`;
     }
-    
+
     try {
       // 複製到剪貼簿作為備用
       await navigator.clipboard.writeText(fullPrompt);
-      console.log('Prompt已複製到剪貼簿:', fullPrompt);
-      
-      // 儲存到localStorage供Gemini頁面讀取
-      localStorage.setItem('gemini-auto-prompt', fullPrompt);
-      localStorage.setItem('gemini-auto-prompt-time', Date.now().toString());
-      localStorage.setItem('gemini-auto-prompt-action', actionType);
-      
-      console.log('Prompt已儲存到localStorage:', fullPrompt);
-      
+      console.log('📋 Prompt已複製到剪貼簿:', fullPrompt.substring(0, 50) + '...');
+
+      // ✅ FIX: 通過 background script 發送消息到 Gemini
+      console.log('📤 發送消息到 background script...');
+
+      chrome.runtime.sendMessage({
+        action: 'openGeminiWithPrompt',
+        url: engineConfig.baseUrl,
+        prompt: fullPrompt
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('❌ 發送失敗:', chrome.runtime.lastError);
+          alert('無法打開Gemini，請手動複製內容:\n\n' + fullPrompt);
+        } else {
+          console.log('✅ 消息已發送到 background script:', response);
+        }
+      });
+
       if (shouldAlert) {
         // 顯示提示訊息
         setTimeout(() => {
-          alert('內容將自動輸入到Gemini並發送！\n\n✅ 使用智能事件系統自動處理');
+          alert('內容將自動輸入到Gemini並發送！\n\n✅ 使用 Chrome 消息系統自動處理');
         }, 300);
       }
-      
+
     } catch (error) {
-      console.error('處理prompt失敗:', error);
+      console.error('❌ 處理prompt失敗:', error);
       if (shouldAlert) {
         alert('無法處理prompt，請手動複製以下內容：\n\n' + fullPrompt);
       }
     }
-    
-    return engineConfig.baseUrl;
+
+    // ✅ FIX: 返回 null 因為 background script 會處理打開 Gemini
+    return null;
   }
 }
 
@@ -919,12 +938,17 @@ ${pageContent}`;
 
     const aiUrl = await generateAIUrl('summary', fullPrompt, currentUrl);
 
-    // 計算右側位置
-    const rightPosition = window.screen.width - 800 - 100;
-    const topPosition = window.screenY + 50;
+    // ✅ FIX: 如果是 Gemini，background script 會處理打開標籤頁
+    if (aiUrl) {
+      // Claude AI - 直接打開 URL
+      const rightPosition = window.screen.width - 800 - 100;
+      const topPosition = window.screenY + 50;
 
-    // 開小視窗在右側
-    window.open(aiUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
+      window.open(aiUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
+    } else {
+      // Gemini - background script 已經處理
+      console.log('✅ Gemini 由 background script 處理');
+    }
 
   } catch (error) {
     console.error('總結功能錯誤：', error);
@@ -968,12 +992,17 @@ ${pageContent}`;
 
     const aiUrl = await generateAIUrl('translate', fullPrompt, currentUrl);
 
-    // 計算右側位置
-    const rightPosition = window.screen.width - 800 - 100;
-    const topPosition = window.screenY + 50;
+    // ✅ FIX: 如果是 Gemini，background script 會處理打開標籤頁
+    if (aiUrl) {
+      // Claude AI - 直接打開 URL
+      const rightPosition = window.screen.width - 800 - 100;
+      const topPosition = window.screenY + 50;
 
-    // 開小視窗在右側
-    window.open(aiUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
+      window.open(aiUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
+    } else {
+      // Gemini - background script 已經處理
+      console.log('✅ Gemini 由 background script 處理');
+    }
 
   } catch (error) {
     console.error('翻譯功能錯誤：', error);
@@ -988,12 +1017,17 @@ async function handleSearchAction() {
     const searchPrompt = `請收集「${keyword.trim()}」的最新相關資訊，並遵守以下指引：只根據你實際使用搜尋工具檢索到的公開數據回答，不得依賴內建知識或推測內容。所有重要數據與事實，務必標明明確資料來源（如新聞、官方公告、專業網站），並於每點附上來源說明。若某項資訊未於檢索工具或外部資料中獲得，請明確回覆「查無此資料」或「資訊不足」，嚴禁自行假設或補足內容。`;
     const aiUrl = await generateAIUrl('search', searchPrompt);
 
-    // 計算右側位置
-    const rightPosition = window.screen.width - 800 - 100; // 螢幕寬度 - 視窗寬度 - 邊距
-    const topPosition = window.screenY + 50; // 當前視窗頂部 + 小邊距
+    // ✅ FIX: 如果是 Gemini，background script 會處理打開標籤頁
+    if (aiUrl) {
+      // Claude AI - 直接打開 URL
+      const rightPosition = window.screen.width - 800 - 100;
+      const topPosition = window.screenY + 50;
 
-    // 開小視窗在右側
-    window.open(aiUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
+      window.open(aiUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
+    } else {
+      // Gemini - background script 已經處理
+      console.log('✅ Gemini 由 background script 處理');
+    }
   }
 }
 
@@ -1026,13 +1060,19 @@ async function handleOCRCapture() {
         console.log('Gemini OCR: 圖片已複製，提示將自動輸入');
       }
 
-      // 計算右側位置
-      const rightPosition = window.screen.width - 800 - 100;
-      const topPosition = window.screenY + 50;
+      // ✅ FIX: 如果是 Gemini，background script 會處理打開標籤頁
+      if (aiUrl) {
+        // Claude AI - 直接打開 URL
+        const rightPosition = window.screen.width - 800 - 100;
+        const topPosition = window.screenY + 50;
 
-      window.open(aiUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
+        window.open(aiUrl, '_blank', `width=800,height=1200,left=${rightPosition},top=${topPosition},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`);
 
-      console.log('OCR任務已啟動，URL參數已設置');
+        console.log('OCR任務已啟動，URL參數已設置');
+      } else {
+        // Gemini - background script 已經處理
+        console.log('✅ Gemini OCR 由 background script 處理');
+      }
 
     } else {
       alert('截圖失敗，請檢查權限設定');

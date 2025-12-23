@@ -11,10 +11,17 @@
   let isProcessing = false;
   let lastProcessedContent = '';
 
+  // ✅ FIX #2: 明確授權機制
+  let userConsentGiven = false;
+
   // ==================== 配置常量 ====================
   const CONFIG = {
     // 域名檢查
     DOMAIN: 'gemini.google.com',
+
+    // ✅ FIX #3: 持久化防重複機制
+    PROCESSED_PROMPTS_KEY: 'gemini-processed-prompts',
+    MAX_PROCESSED_HISTORY: 10,
 
     // 時間配置 (毫秒)
     TIMEOUT: {
@@ -74,6 +81,45 @@
   }
 
   // ==================== 工具函數 ====================
+
+  /**
+   * ✅ FIX #3: 檢查內容是否已被處理過（持久化）
+   */
+  function hasBeenProcessed(content) {
+    try {
+      const processed = JSON.parse(localStorage.getItem(CONFIG.PROCESSED_PROMPTS_KEY) || '[]');
+      const fingerprint = content.substring(0, 100); // 使用前 100 字符作為指紋
+      return processed.includes(fingerprint);
+    } catch (error) {
+      console.warn('⚠️ 無法檢查處理歷史:', error);
+      return false;
+    }
+  }
+
+  /**
+   * ✅ FIX #3: 標記內容為已處理（持久化）
+   */
+  function markAsProcessed(content) {
+    try {
+      const processed = JSON.parse(localStorage.getItem(CONFIG.PROCESSED_PROMPTS_KEY) || '[]');
+      const fingerprint = content.substring(0, 100);
+
+      // 避免重複添加
+      if (!processed.includes(fingerprint)) {
+        processed.push(fingerprint);
+
+        // 保持最近 10 條記錄，防止存儲膨脹
+        if (processed.length > CONFIG.MAX_PROCESSED_HISTORY) {
+          processed.shift();
+        }
+
+        localStorage.setItem(CONFIG.PROCESSED_PROMPTS_KEY, JSON.stringify(processed));
+        console.log('✅ 已標記為已處理:', fingerprint.substring(0, 30) + '...');
+      }
+    } catch (error) {
+      console.error('❌ 無法記錄已處理內容:', error);
+    }
+  }
 
   /**
    * 檢查元素是否可見
@@ -559,11 +605,15 @@
 
       if (autoPrompt && promptTime) {
         const timeDiff = Date.now() - parseInt(promptTime);
+        const FRESH_DATA_THRESHOLD = 30 * 1000; // ✅ FIX: 只接受 30 秒內的數據
 
-        if (timeDiff < CONFIG.TIMEOUT.PROMPT_EXPIRY) {
-          console.log('✅ 檢測到 localStorage 自動提示');
+        if (timeDiff < FRESH_DATA_THRESHOLD) {
+          console.log('✅ 檢測到新鮮的 localStorage 自動提示');
           console.log('📋 動作類型:', actionType);
           console.log('⏰ 時間差:', Math.floor(timeDiff / 1000), '秒前');
+
+          // ✅ FIX #2: 授予授權（因為數據很新鮮，來自用戶的擴展操作）
+          userConsentGiven = true;
 
           // 清除 localStorage 避免重複處理
           localStorage.removeItem('gemini-auto-prompt');
@@ -571,7 +621,22 @@
           localStorage.removeItem('gemini-auto-prompt-action');
 
           executeAutoAction(autoPrompt, actionType);
+
+          // 執行後重置授權
+          setTimeout(() => {
+            userConsentGiven = false;
+          }, 5000);
+
           return true;
+        } else if (timeDiff < CONFIG.TIMEOUT.PROMPT_EXPIRY) {
+          // 數據在 30 秒到 5 分鐘之間：可能是舊數據
+          console.log('⚠️ localStorage 數據不夠新鮮 (' + Math.floor(timeDiff / 1000) + '秒前)，已忽略');
+          console.log('💡 為安全起見，僅執行 30 秒內的請求');
+
+          // 清除舊數據
+          localStorage.removeItem('gemini-auto-prompt');
+          localStorage.removeItem('gemini-auto-prompt-time');
+          localStorage.removeItem('gemini-auto-prompt-action');
         } else {
           console.log('⏰ localStorage 自動提示已過期，清除緩存');
           localStorage.removeItem('gemini-auto-prompt');
@@ -591,19 +656,35 @@
    * 執行自動動作
    */
   async function executeAutoAction(prompt, actionType) {
-    // 防重複檢查
+    // ✅ FIX #2: 檢查明確授權
+    if (!userConsentGiven) {
+      console.log('⏸️ 自動執行被阻止：需要用戶明確授權');
+      console.log('💡 提示：此功能僅在您點擊擴展按鈕時才會執行');
+      return;
+    }
+
+    // ✅ FIX #3: 持久化防重複檢查
+    if (hasBeenProcessed(prompt)) {
+      console.log('⏸️ 內容已處理過（持久化記錄），跳過重複執行');
+      return;
+    }
+
+    // 防重複檢查（臨時狀態）
     if (isProcessing) {
       console.log('⏸️ 正在處理中，跳過重複執行');
       return;
     }
 
     if (prompt === lastProcessedContent) {
-      console.log('⏸️ 內容已處理過，跳過重複執行');
+      console.log('⏸️ 內容已處理過（會話記錄），跳過重複執行');
       return;
     }
 
     isProcessing = true;
     lastProcessedContent = prompt;
+
+    // ✅ FIX #3: 標記為已處理
+    markAsProcessed(prompt);
 
     try {
       console.log(`🎯 開始執行自動動作: ${actionType}`);
@@ -644,13 +725,16 @@
         lastUrl = url;
         console.log('🔄 Gemini 頁面 URL 變化:', url);
 
-        // 重置防重複機制，因為是新頁面
+        // 重置臨時防重複機制（但保留持久化記錄）
         isProcessing = false;
         lastProcessedContent = '';
 
-        setTimeout(() => {
-          checkForAutoPrompt();
-        }, 2000);
+        // ✅ FIX #4: 移除 URL 變化時的自動檢查
+        // setTimeout(() => {
+        //   checkForAutoPrompt();
+        // }, 2000);
+
+        console.log('💡 頁面已更新，待命中。需要執行時請點擊擴展按鈕。');
       }
     });
 
@@ -670,8 +754,16 @@
       if (request.action === 'autoInputPrompt') {
         console.log('📨 收到自動輸入 prompt 請求');
 
+        // ✅ FIX #2: 授予明確授權（因為這是用戶主動點擊擴展按鈕）
+        userConsentGiven = true;
+
         autoInputPrompt(request.prompt).then(success => {
           sendResponse({ success: success });
+
+          // 執行完成後重置授權（單次授權模式）
+          setTimeout(() => {
+            userConsentGiven = false;
+          }, 5000);
         });
 
         return true;
@@ -687,13 +779,13 @@
   async function checkForAutoPrompt() {
     console.log('🔍 開始檢查自動 prompt...');
 
-    // 優先檢查 localStorage
-    const hasLocalStorage = await checkLocalStoragePrompt();
+    // ✅ FIX #4: 僅檢查 localStorage，移除剪貼簿自動讀取
+    await checkLocalStoragePrompt();
 
-    // 如果沒有 localStorage prompt，檢查剪貼簿
-    if (!hasLocalStorage) {
-      await checkClipboardForPrompt();
-    }
+    // ❌ 已停用：剪貼簿自動讀取（隱私問題 + 非預期執行）
+    // if (!hasLocalStorage) {
+    //   await checkClipboardForPrompt();
+    // }
   }
 
   // ==================== 調試工具 ====================
@@ -758,7 +850,8 @@
           localStorage.removeItem('gemini-auto-prompt');
           localStorage.removeItem('gemini-auto-prompt-time');
           localStorage.removeItem('gemini-auto-prompt-action');
-          console.log('✅ 測試數據已清理');
+          localStorage.removeItem(CONFIG.PROCESSED_PROMPTS_KEY); // ✅ FIX #3: 清理持久化記錄
+          console.log('✅ 測試數據已清理（包含持久化記錄）');
         },
 
         // 模擬自動提示
@@ -791,11 +884,13 @@
     console.log('🎯 Gemini Handler 初始化開始');
 
     try {
-      checkForAutoPrompt();
+      // ✅ FIX: 停用自動檢查，改為僅響應 Chrome 消息
+      // checkForAutoPrompt(); // 已停用：現在使用 Chrome 消息傳遞
       observePageChanges();
       setupDebugTools();
 
-      console.log('✅ Gemini Handler 初始化成功');
+      console.log('✅ Gemini Handler 初始化成功 (Chrome 消息模式)');
+      console.log('💡 等待來自擴展的 Chrome 消息');
     } catch (error) {
       console.error('❌ Gemini Handler 初始化失敗:', error);
     }
